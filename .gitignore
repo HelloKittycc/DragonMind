@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+
+apps/api/.venv/
+apps/api/dragonmind.sqlite3
+
+apps/web/node_modules/
+apps/web/.next/
+apps/web/tsconfig.tsbuildinfo
+
+.pnpm-store/
