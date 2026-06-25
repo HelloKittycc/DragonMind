@@ -52,16 +52,41 @@ export type RelationRecord = {
   created_at: string;
 };
 
+export type EvidenceRecord = {
+  id: string;
+  target_type: string;
+  target_id: string;
+  evidence_type: string;
+  stance: string;
+  content: string;
+  source: string | null;
+  source_url: string | null;
+  created_at: string;
+};
+
 export type NodeDetail = {
   node: NodeRecord;
   messages: MessageRecord[];
   latest_interpretation: InterpretationRecord | null;
   tasks: TaskRecord[];
   relations: RelationRecord[];
+  evidence: EvidenceRecord[];
 };
 
 export type WorkspaceNodeItem = {
   node: NodeRecord;
   latest_message: MessageRecord | null;
   pending_tasks: TaskRecord[];
+};
+
+export type DiscoveryFeedItem = {
+  item_type: string;
+  node_id: string | null;
+  task_id: string | null;
+  relation_id: string | null;
+  evidence_id: string | null;
+  title: string;
+  description: string;
+  created_at: string;
+  runtime_importance: number;
 };

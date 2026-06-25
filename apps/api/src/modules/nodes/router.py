@@ -11,11 +11,13 @@ from src.modules.nodes.schemas import (
     NodeDetailResponse,
     ProgressNodeRequest,
     WorkspaceNodeItem,
+    NodeRecord,
 )
 from src.modules.nodes.service import (
     InvalidStageProgressionError,
     NodeNotFoundError,
     append_message,
+    archive_node,
     create_spark,
     get_node_detail,
     list_workspace_nodes,
@@ -55,6 +57,15 @@ def post_message(node_id: str, payload: AppendMessageRequest) -> dict:
     with connection_scope() as conn:
         try:
             return append_message(conn, node_id, payload.content, payload.role, payload.message_type)
+        except NodeNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.patch("/{node_id}/archive", response_model=NodeRecord)
+def patch_archive_node(node_id: str) -> dict:
+    with connection_scope() as conn:
+        try:
+            return archive_node(conn, node_id)
         except NodeNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 

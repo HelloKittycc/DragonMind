@@ -2,7 +2,7 @@ import sqlite3
 import uuid
 from typing import Optional
 
-from src.shared.time import now_iso, today_at_21_iso
+from src.shared.time import add_days_iso, now_datetime, now_iso, today_at_21_iso
 
 
 class TaskNotFoundError(Exception):
@@ -111,3 +111,46 @@ def update_task_reminder(
     )
     updated = conn.execute("SELECT * FROM task WHERE id = ?", (task_id,)).fetchone()
     return dict(updated)
+
+
+def advance_due_reminders(conn: sqlite3.Connection) -> list[dict]:
+    now = now_datetime()
+    now_text = now.isoformat()
+    due_tasks = conn.execute(
+        """
+        SELECT * FROM task
+        WHERE status = 'pending'
+          AND next_remind_at IS NOT NULL
+          AND next_remind_at <= ?
+        ORDER BY next_remind_at ASC
+        """,
+        (now_text,),
+    ).fetchall()
+    updated_tasks = []
+    for task in due_tasks:
+        remind_count = task["remind_count"] + 1
+        if remind_count == 1:
+            status = "pending"
+            next_remind_at = add_days_iso(now_text, 7)
+        elif remind_count == 2:
+            status = "pending"
+            next_remind_at = add_days_iso(now_text, 30)
+        else:
+            status = "sleeping"
+            next_remind_at = None
+
+        conn.execute(
+            """
+            UPDATE task
+            SET status = ?,
+                remind_count = ?,
+                last_remind_at = ?,
+                next_remind_at = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (status, remind_count, now_text, next_remind_at, now_text, task["id"]),
+        )
+        updated = conn.execute("SELECT * FROM task WHERE id = ?", (task["id"],)).fetchone()
+        updated_tasks.append(dict(updated))
+    return updated_tasks

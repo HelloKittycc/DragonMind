@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getNode } from "@/api-client/client";
+import { EvidencePanel } from "@/components/evidence/EvidencePanel";
+import { ArchiveButton } from "@/components/nodes/ArchiveButton";
 import { AppendMessageForm } from "@/components/nodes/AppendMessageForm";
 import { MessageTimeline } from "@/components/nodes/MessageTimeline";
 import { StageProgressionForm } from "@/components/nodes/StageProgressionForm";
@@ -27,10 +29,12 @@ export default async function NodeDetailPage({ params }: Props) {
           <Link href="/">New Spark</Link>
         </div>
       </header>
+      <ArchiveButton nodeId={detail.node.id} archived={detail.node.lifecycle_status === "archived"} />
       <MessageTimeline messages={detail.messages} />
       <AppendMessageForm nodeId={detail.node.id} />
       <StageProgressionForm nodeId={detail.node.id} nodeType={detail.node.node_type} />
       <TaskPanel tasks={detail.tasks} />
+      <EvidencePanel evidence={detail.evidence} />
       <section className="panel">
         <h2>Day 1 Records</h2>
         <p className="muted">
@@ -38,6 +42,7 @@ export default async function NodeDetailPage({ params }: Props) {
         </p>
         <p className="muted">Tasks: {detail.tasks.length}</p>
         <p className="muted">Relations: {detail.relations.length}</p>
+        <p className="muted">Evidence: {detail.evidence.length}</p>
       </section>
     </main>
   );

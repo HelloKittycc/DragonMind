@@ -86,6 +86,9 @@ def create_spark(conn: sqlite3.Connection, content: str, title: Optional[str] = 
         """,
         (task_id, node_id, "Follow up on this Spark.", today_at_21_iso(), timestamp, timestamp),
     )
+    from src.modules.discovery.service import run_discovery_for_spark
+
+    run_discovery_for_spark(conn, node_id)
     return get_node_detail(conn, node_id)
 
 
@@ -203,6 +206,14 @@ def get_node_detail(conn: sqlite3.Connection, node_id: str) -> dict:
         """,
         (node_id, node_id),
     ).fetchall()
+    evidence = conn.execute(
+        """
+        SELECT * FROM evidence
+        WHERE target_type = 'node' AND target_id = ?
+        ORDER BY created_at DESC
+        """,
+        (node_id,),
+    ).fetchall()
 
     return {
         "node": dict(node),
@@ -210,7 +221,27 @@ def get_node_detail(conn: sqlite3.Connection, node_id: str) -> dict:
         "latest_interpretation": _row_to_dict(interpretation),
         "tasks": [dict(row) for row in tasks],
         "relations": [dict(row) for row in relations],
+        "evidence": [dict(row) for row in evidence],
     }
+
+
+def archive_node(conn: sqlite3.Connection, node_id: str) -> dict:
+    node = conn.execute("SELECT * FROM node WHERE id = ?", (node_id,)).fetchone()
+    if node is None:
+        raise NodeNotFoundError("Node not found")
+    timestamp = now_iso()
+    conn.execute(
+        """
+        UPDATE node
+        SET lifecycle_status = 'archived',
+            archived_at = ?,
+            updated_at = ?
+        WHERE id = ?
+        """,
+        (timestamp, timestamp, node_id),
+    )
+    updated = conn.execute("SELECT * FROM node WHERE id = ?", (node_id,)).fetchone()
+    return dict(updated)
 
 
 def list_workspace_nodes(conn: sqlite3.Connection, workspace_filter: str) -> list[dict]:

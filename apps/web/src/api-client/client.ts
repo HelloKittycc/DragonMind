@@ -1,4 +1,13 @@
-import type { MessageRecord, NodeDetail, RelationRecord, TaskRecord, WorkspaceNodeItem } from "./types";
+import type {
+  DiscoveryFeedItem,
+  EvidenceRecord,
+  MessageRecord,
+  NodeDetail,
+  NodeRecord,
+  RelationRecord,
+  TaskRecord,
+  WorkspaceNodeItem
+} from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
@@ -95,5 +104,44 @@ export function updateTaskReminder(taskId: string, next_remind_at: string): Prom
   return request<TaskRecord>(`/tasks/${taskId}/reminder`, {
     method: "PATCH",
     body: JSON.stringify({ next_remind_at })
+  });
+}
+
+export function runReminderCadence(): Promise<TaskRecord[]> {
+  return request<TaskRecord[]>("/tasks/reminder/run", {
+    method: "POST"
+  });
+}
+
+export function archiveNode(nodeId: string): Promise<NodeRecord> {
+  return request<NodeRecord>(`/nodes/${nodeId}/archive`, {
+    method: "PATCH"
+  });
+}
+
+export function getDiscoveryFeed(): Promise<DiscoveryFeedItem[]> {
+  return request<DiscoveryFeedItem[]>("/discovery-feed", {
+    cache: "no-store"
+  });
+}
+
+export function createEvidence(payload: {
+  target_type: string;
+  target_id: string;
+  evidence_type: string;
+  stance: string;
+  content: string;
+  source?: string;
+  source_url?: string;
+}): Promise<EvidenceRecord> {
+  return request<EvidenceRecord>("/evidence", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function getEvidence(targetType: string, targetId: string): Promise<EvidenceRecord[]> {
+  return request<EvidenceRecord[]>(`/evidence?target_type=${encodeURIComponent(targetType)}&target_id=${encodeURIComponent(targetId)}`, {
+    cache: "no-store"
   });
 }

@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.modules.nodes.router import router as nodes_router
+from src.modules.discovery.router import router as discovery_router
+from src.modules.evidence.router import router as evidence_router
 from src.modules.relations.router import router as relations_router
 from src.modules.tasks.router import router as tasks_router
 from src.db.database import run_migrations
@@ -29,5 +31,7 @@ def health() -> dict[str, str]:
 
 
 app.include_router(nodes_router)
+app.include_router(discovery_router)
+app.include_router(evidence_router)
 app.include_router(relations_router)
 app.include_router(tasks_router)

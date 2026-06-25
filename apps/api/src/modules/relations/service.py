@@ -2,6 +2,7 @@ import sqlite3
 import uuid
 from typing import Optional
 
+from src.modules.discovery.service import revive_sleeping_tasks_for_nodes
 from src.shared.time import now_iso
 
 
@@ -81,6 +82,7 @@ def create_relation(
     except sqlite3.IntegrityError as exc:
         raise RelationConflictError("Active relation already exists") from exc
 
+    revive_sleeping_tasks_for_nodes(conn, [source_node_id, target_node_id])
     row = conn.execute("SELECT * FROM relation WHERE id = ?", (relation_id,)).fetchone()
     return dict(row)
 

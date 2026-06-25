@@ -132,7 +132,9 @@ textarea {
 }
 
 .task-row,
-.workspace-row {
+.workspace-row,
+.feed-row,
+.evidence-row {
   border-top: 1px solid #e7ece8;
   padding-top: 14px;
 }

@@ -11,6 +11,7 @@ from src.modules.tasks.service import (
     InvalidTaskStatusTransitionError,
     TaskNodeNotFoundError,
     TaskNotFoundError,
+    advance_due_reminders,
     create_task,
     update_task_reminder,
     update_task_status,
@@ -34,6 +35,12 @@ def post_task(payload: CreateTaskRequest) -> dict:
             )
         except TaskNodeNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/reminder/run", response_model=list[TaskRecord])
+def post_reminder_run() -> list[dict]:
+    with connection_scope() as conn:
+        return advance_due_reminders(conn)
 
 
 @router.patch("/{task_id}/status", response_model=TaskRecord)

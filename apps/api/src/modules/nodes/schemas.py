@@ -119,12 +119,25 @@ class RelationRecord(BaseModel):
     created_at: str
 
 
+class EvidenceRecord(BaseModel):
+    id: str
+    target_type: str
+    target_id: str
+    evidence_type: str
+    stance: str
+    content: str
+    source: Optional[str]
+    source_url: Optional[str]
+    created_at: str
+
+
 class NodeDetailResponse(BaseModel):
     node: NodeRecord
     messages: List[MessageRecord]
     latest_interpretation: Optional[InterpretationRecord]
     tasks: List[TaskRecord]
     relations: List[RelationRecord] = []
+    evidence: List[EvidenceRecord] = []
 
 
 class WorkspaceNodeItem(BaseModel):
