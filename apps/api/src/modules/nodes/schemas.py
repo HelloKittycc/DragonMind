@@ -48,6 +48,23 @@ class AppendMessageRequest(BaseModel):
         return value
 
 
+class ProgressNodeRequest(BaseModel):
+    content: str = Field(min_length=1)
+    title: Optional[str] = None
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, value: str) -> str:
+        return non_empty_text(value, "content")
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        return non_empty_text(value, "title")
+
+
 class NodeRecord(BaseModel):
     id: str
     node_type: str
@@ -91,11 +108,29 @@ class TaskRecord(BaseModel):
     updated_at: str
 
 
+class RelationRecord(BaseModel):
+    id: str
+    source_node_id: str
+    target_node_id: str
+    relation_type: str
+    relation_reason: str
+    status: str
+    created_by: str
+    created_at: str
+
+
 class NodeDetailResponse(BaseModel):
     node: NodeRecord
     messages: List[MessageRecord]
     latest_interpretation: Optional[InterpretationRecord]
     tasks: List[TaskRecord]
+    relations: List[RelationRecord] = []
+
+
+class WorkspaceNodeItem(BaseModel):
+    node: NodeRecord
+    latest_message: Optional[MessageRecord]
+    pending_tasks: List[TaskRecord]
 
 
 class CreateSparkResponse(NodeDetailResponse):

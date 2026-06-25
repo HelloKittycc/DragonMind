@@ -1,4 +1,4 @@
-import type { MessageRecord, NodeDetail } from "./types";
+import type { MessageRecord, NodeDetail, RelationRecord, TaskRecord, WorkspaceNodeItem } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
@@ -34,5 +34,66 @@ export function appendMessage(nodeId: string, content: string): Promise<MessageR
   return request<MessageRecord>(`/nodes/${nodeId}/messages`, {
     method: "POST",
     body: JSON.stringify({ content, role: "user", message_type: "reply" })
+  });
+}
+
+export function progressNode(nodeId: string, content: string, title?: string): Promise<NodeDetail> {
+  return request<NodeDetail>(`/nodes/${nodeId}/progress`, {
+    method: "POST",
+    body: JSON.stringify({ content, title: title || undefined })
+  });
+}
+
+export function getWorkspaceNodes(filter: string): Promise<WorkspaceNodeItem[]> {
+  return request<WorkspaceNodeItem[]>(`/nodes?filter=${encodeURIComponent(filter)}`, {
+    cache: "no-store"
+  });
+}
+
+export function createRelation(payload: {
+  source_node_id: string;
+  target_node_id: string;
+  relation_type: string;
+  relation_reason: string;
+  status?: string;
+  created_by?: string;
+}): Promise<RelationRecord> {
+  return request<RelationRecord>("/relations", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function updateRelationStatus(relationId: string, status: "confirmed" | "dismissed"): Promise<RelationRecord> {
+  return request<RelationRecord>(`/relations/${relationId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status })
+  });
+}
+
+export function createTask(payload: {
+  node_id: string;
+  task_type: string;
+  source_type: string;
+  content: string;
+  next_remind_at?: string;
+}): Promise<TaskRecord> {
+  return request<TaskRecord>("/tasks", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function updateTaskStatus(taskId: string, status: "pending" | "sleeping" | "completed"): Promise<TaskRecord> {
+  return request<TaskRecord>(`/tasks/${taskId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status })
+  });
+}
+
+export function updateTaskReminder(taskId: string, next_remind_at: string): Promise<TaskRecord> {
+  return request<TaskRecord>(`/tasks/${taskId}/reminder`, {
+    method: "PATCH",
+    body: JSON.stringify({ next_remind_at })
   });
 }

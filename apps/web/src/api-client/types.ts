@@ -41,9 +41,27 @@ export type TaskRecord = {
   updated_at: string;
 };
 
+export type RelationRecord = {
+  id: string;
+  source_node_id: string;
+  target_node_id: string;
+  relation_type: string;
+  relation_reason: string;
+  status: string;
+  created_by: string;
+  created_at: string;
+};
+
 export type NodeDetail = {
   node: NodeRecord;
   messages: MessageRecord[];
   latest_interpretation: InterpretationRecord | null;
   tasks: TaskRecord[];
+  relations: RelationRecord[];
+};
+
+export type WorkspaceNodeItem = {
+  node: NodeRecord;
+  latest_message: MessageRecord | null;
+  pending_tasks: TaskRecord[];
 };

@@ -17,4 +17,8 @@ TASK_TYPES = {"spark_follow_up", "discovery_expand", "verify", "review", "manual
 TASK_SOURCE_TYPES = {"spark", "discovery", "user", "system"}
 TASK_STATUSES = {"pending", "sleeping", "completed"}
 
+RELATION_TYPES = {"derived_from", "related", "supports", "contradicts"}
+RELATION_STATUSES = {"suggested", "confirmed", "dismissed"}
+RELATION_CREATED_BY = {"user", "agent", "system"}
+
 EXTRACTION_VERSION = "v0.1-minimal"
