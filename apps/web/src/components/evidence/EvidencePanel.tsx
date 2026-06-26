@@ -1,4 +1,5 @@
 import type { EvidenceRecord } from "@/api-client/types";
+import { evidenceSummary } from "@/api-client/display";
 
 type Props = {
   evidence: EvidenceRecord[];
@@ -7,15 +8,22 @@ type Props = {
 export function EvidencePanel({ evidence }: Props) {
   return (
     <section className="panel stack">
-      <h2>Evidence</h2>
+      <div>
+        <p className="section-kicker">Evidence</p>
+        <h2>证据与资料</h2>
+      </div>
       {evidence.length === 0 ? (
-        <p className="muted">No evidence.</p>
+        <p className="muted">暂时没有证据或资料。</p>
       ) : (
         evidence.map((item) => (
           <article className="evidence-row" key={item.id}>
-            <strong>{item.stance}</strong>
-            <p className="muted">{item.evidence_type}</p>
+            <strong>{evidenceSummary(item)}</strong>
             <p>{item.content}</p>
+            {item.source || item.source_url ? (
+              <p className="muted">
+                来源：{item.source ?? "未注明"} {item.source_url ? item.source_url : ""}
+              </p>
+            ) : null}
           </article>
         ))
       )}

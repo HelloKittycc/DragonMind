@@ -21,7 +21,7 @@ export function ArchiveButton({ nodeId, archived }: Props) {
       await archiveNode(nodeId);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Archive failed");
+      setError(err instanceof Error ? err.message : "归档失败。请稍后重试。");
     } finally {
       setIsSaving(false);
     }
@@ -30,7 +30,7 @@ export function ArchiveButton({ nodeId, archived }: Props) {
   return (
     <div>
       <button className="button button-secondary" disabled={archived || isSaving} onClick={onArchive} type="button">
-        {archived ? "Archived" : "Archive"}
+        {archived ? "已归档" : "归档"}
       </button>
       {error ? <p className="error">{error}</p> : null}
     </div>

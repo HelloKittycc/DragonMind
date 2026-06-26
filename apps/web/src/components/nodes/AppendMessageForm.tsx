@@ -23,7 +23,7 @@ export function AppendMessageForm({ nodeId }: Props) {
       setContent("");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Message append failed");
+      setError(err instanceof Error ? err.message : "保存失败。请稍后重试。");
     } finally {
       setIsSaving(false);
     }
@@ -31,16 +31,17 @@ export function AppendMessageForm({ nodeId }: Props) {
 
   return (
     <form className="panel stack" onSubmit={onSubmit}>
-      <label htmlFor="message-content">Append message</label>
+      <label htmlFor="message-content">补充记录</label>
       <textarea
         id="message-content"
         className="textarea"
         value={content}
         onChange={(event) => setContent(event.target.value)}
+        placeholder="补充新的观察、修正或背景信息……"
         required
       />
       <button className="button" disabled={isSaving || !content.trim()} type="submit">
-        {isSaving ? "Appending..." : "Append"}
+        {isSaving ? "正在保存..." : "保存补充"}
       </button>
       {error ? <p className="error">{error}</p> : null}
     </form>

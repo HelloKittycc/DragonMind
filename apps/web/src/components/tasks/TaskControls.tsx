@@ -27,7 +27,7 @@ export function TaskControls({ task }: Props) {
       await action();
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Task update failed");
+      setError(err instanceof Error ? err.message : "更新失败。请稍后重试。");
     } finally {
       setIsSaving(false);
     }
@@ -41,7 +41,7 @@ export function TaskControls({ task }: Props) {
         onClick={() => run(() => updateTaskStatus(task.id, "completed"))}
         type="button"
       >
-        Complete
+        完成
       </button>
       <button
         className="button button-secondary"
@@ -49,15 +49,15 @@ export function TaskControls({ task }: Props) {
         onClick={() => run(() => updateTaskReminder(task.id, tomorrowIso()))}
         type="button"
       >
-        Delay
+        延后
       </button>
       <button
         className="button button-secondary"
-        disabled={isSaving || task.status !== "pending"}
-        onClick={() => run(() => updateTaskStatus(task.id, "sleeping"))}
+        disabled={isSaving || task.status === "completed"}
+        onClick={() => run(() => task.status === "sleeping" ? updateTaskStatus(task.id, "pending") : updateTaskStatus(task.id, "sleeping"))}
         type="button"
       >
-        Sleep
+        {task.status === "sleeping" ? "重新激活" : "休眠"}
       </button>
       {error ? <p className="error">{error}</p> : null}
     </div>

@@ -1,4 +1,5 @@
 import type { MessageRecord } from "@/api-client/types";
+import { messageMeta } from "@/api-client/display";
 
 type Props = {
   messages: MessageRecord[];
@@ -7,14 +8,17 @@ type Props = {
 export function MessageTimeline({ messages }: Props) {
   return (
     <section className="panel stack">
-      <h2>Messages</h2>
+      <div>
+        <p className="section-kicker">Cognitive Timeline</p>
+        <h2>认知时间线</h2>
+      </div>
       {messages.length === 0 ? (
-        <p className="muted">No messages yet.</p>
+        <p className="muted">暂时没有记录。</p>
       ) : (
         messages.map((message) => (
           <article className="message" key={message.id}>
             <div className="message-meta">
-              {message.role} · {message.message_type} · {message.created_at}
+              {messageMeta(message)}
             </div>
             <div>{message.content}</div>
           </article>
