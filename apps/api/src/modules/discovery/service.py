@@ -10,11 +10,15 @@ def _new_id() -> str:
 
 
 def _tokens(text: str) -> set[str]:
-    return {
+    tokens = {
         token.lower()
         for token in re.findall(r"[A-Za-z0-9_\-\u4e00-\u9fff]+", text)
         if len(token.strip()) >= 2
     }
+    for cjk_run in re.findall(r"[\u4e00-\u9fff]+", text):
+        if len(cjk_run) >= 2:
+            tokens.update(cjk_run[index : index + 2] for index in range(len(cjk_run) - 1))
+    return tokens
 
 
 def _latest_content(conn: sqlite3.Connection, node_id: str) -> str:
