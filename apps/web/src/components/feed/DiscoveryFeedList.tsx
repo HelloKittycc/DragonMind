@@ -11,6 +11,7 @@ export function DiscoveryFeedList({ items }: Props) {
   const repeated = items.filter((item) => item.item_type === "repeated_sparks");
   const related = items.filter((item) => item.item_type === "related_sparks" || item.item_type === "relation");
   const pending = items.filter((item) => item.item_type === "pending_spark_follow_up" || item.item_type === "discovery_task");
+  const topItems = highAttention.length ? highAttention.slice(0, 4) : items.slice(0, 4);
 
   return (
     <section className="feed stack">
@@ -24,7 +25,7 @@ export function DiscoveryFeedList({ items }: Props) {
         </div>
       ) : (
         <>
-          <FeedSection title="高关注事项" items={highAttention.length ? highAttention : items.slice(0, 3)} />
+          <FeedSection title="高关注事项" items={topItems} featured />
           {repeated.length ? <FeedSection title="重复出现" items={repeated} /> : null}
           {related.length ? <FeedSection title="关联增强" items={related} /> : null}
           {pending.length ? <FeedSection title="待展开想法" items={pending} /> : null}
@@ -35,11 +36,21 @@ export function DiscoveryFeedList({ items }: Props) {
   );
 }
 
-function FeedSection({ title, items, compact = false }: { title: string; items: DiscoveryFeedItem[]; compact?: boolean }) {
+function FeedSection({
+  title,
+  items,
+  compact = false,
+  featured = false
+}: {
+  title: string;
+  items: DiscoveryFeedItem[];
+  compact?: boolean;
+  featured?: boolean;
+}) {
   return (
     <div className="feed-section stack">
       <h2>{title}</h2>
-      <div className={compact ? "feed-grid compact-feed" : "feed-grid"}>
+      <div className={featured ? "feed-grid featured-feed" : compact ? "feed-grid compact-feed" : "feed-grid"}>
         {items.map((item) => (
           <FeedItemCard item={item} key={`${title}-${item.item_type}-${item.task_id ?? item.relation_id ?? item.evidence_id ?? item.node_id}`} />
         ))}

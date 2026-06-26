@@ -22,10 +22,10 @@ export default async function WorkspacePage({ searchParams }: Props) {
 
   return (
     <AppShell>
-      <main className="shell stack">
+      <main className="shell workspace-shell stack">
         <PageHeader
           title="Workspace"
-          subtitle="管理你的认知对象、任务和决策链路。"
+          subtitle="一个更安静的工作区，用来扫读认知对象、任务和决策链路。"
           actions={
             <>
               <Link className="text-action" href="/">
@@ -44,7 +44,7 @@ export default async function WorkspacePage({ searchParams }: Props) {
             </Link>
           ))}
         </nav>
-        <section className="list-summary panel">
+        <section className="list-summary">
           <strong>{items.length}</strong>
           <span>{filterLabels[selected]} 中的认知对象</span>
         </section>

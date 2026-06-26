@@ -20,7 +20,7 @@ export default async function NodeDetailPage({ params }: Props) {
 
   return (
     <AppShell>
-      <main className="shell stack">
+      <main className="shell node-shell stack">
         <PageHeader
           title={detail.node.title}
           subtitle={`${nodeSummary(detail.node)} · 创建于 ${formatDateTime(detail.node.created_at)}`}
@@ -36,20 +36,26 @@ export default async function NodeDetailPage({ params }: Props) {
             </>
           }
         />
-        <StageProgressionForm nodeId={detail.node.id} nodeType={detail.node.node_type} />
-        <MessageTimeline messages={detail.messages} />
-        <AppendMessageForm nodeId={detail.node.id} />
-        <RelationPanel nodeId={detail.node.id} relations={detail.relations} />
-        <TaskPanel tasks={detail.tasks} />
-        <EvidencePanel evidence={detail.evidence} />
-        <section className="panel danger-zone">
-          <div>
-            <p className="section-kicker">Archive</p>
-            <h2>归档区域</h2>
-            <p className="muted">归档不会删除历史，只会让它默认从 Workspace 中隐藏。</p>
+        <div className="node-detail-grid">
+          <div className="node-main-column stack">
+            <MessageTimeline messages={detail.messages} />
+            <AppendMessageForm nodeId={detail.node.id} />
           </div>
-          <ArchiveButton nodeId={detail.node.id} archived={detail.node.lifecycle_status === "archived"} />
-        </section>
+          <aside className="node-side-column stack" aria-label="节点操作">
+            <StageProgressionForm nodeId={detail.node.id} nodeType={detail.node.node_type} />
+            <TaskPanel tasks={detail.tasks} />
+            <RelationPanel nodeId={detail.node.id} relations={detail.relations} />
+            <EvidencePanel evidence={detail.evidence} />
+            <section className="panel danger-zone">
+              <div>
+                <p className="section-kicker">Archive</p>
+                <h2>归档区域</h2>
+                <p className="muted">归档不会删除历史，只会让它默认从 Workspace 中隐藏。</p>
+              </div>
+              <ArchiveButton nodeId={detail.node.id} archived={detail.node.lifecycle_status === "archived"} />
+            </section>
+          </aside>
+        </div>
       </main>
     </AppShell>
   );

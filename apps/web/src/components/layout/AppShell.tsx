@@ -8,7 +8,19 @@ type Props = {
 export function AppShell({ children }: Props) {
   return (
     <>
-      <div className="app-shell">{children}</div>
+      <div className="app-shell">
+        <nav className="top-nav" aria-label="主导航">
+          <Link className="top-brand" href="/">
+            <span className="brand-mark">DM</span>
+            <span>DragonMind</span>
+          </Link>
+          <div className="top-links">
+            <Link href="/">观察日报</Link>
+            <Link href="/workspace">工作区</Link>
+          </div>
+        </nav>
+        {children}
+      </div>
       <nav className="mobile-bottom-nav" aria-label="移动端导航">
         <Link href="/">观察</Link>
         <Link href="/workspace">工作区</Link>

@@ -42,7 +42,8 @@ export function InputCapture() {
     return (
       <section className="quick-capture-compact" id="quick-capture">
         <button className="quick-capture-button" onClick={() => setIsExpanded(true)} type="button">
-          记录一个新想法
+          <span>记录一个新想法</span>
+          <strong>+</strong>
         </button>
       </section>
     );
