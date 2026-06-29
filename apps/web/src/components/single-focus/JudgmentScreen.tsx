@@ -38,7 +38,7 @@ export function JudgmentScreen({ model }: Props) {
       await createTask({
         node_id: model.nodeId,
         task_type: "review",
-        source_type: "manual",
+        source_type: "user",
         content: "稍后复盘这次判断。"
       });
       setStatus("已放入稍后复盘。");
