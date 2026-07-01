@@ -106,9 +106,8 @@ Fields:
 | `title` | TEXT | yes | User-provided or derived from filename / first line |
 | `original_filename` | TEXT | no | Only for uploaded files |
 | `mime_type` | TEXT | no | For uploaded files |
-| `storage_path` | TEXT | no | Local file path for stored uploaded file |
-| `content_sha256` | TEXT | yes | Hash of normalized text or file bytes |
-| `text_content` | TEXT | no | Normalized extracted text; acceptable for v0.1.1 local-first |
+| `storage_path` | TEXT | yes | Local path to source directory containing `extracted.txt` and optional original file |
+| `content_sha256` | TEXT | yes | Hash of normalized extracted text |
 | `created_at` | TEXT | yes | ISO-8601 |
 | `updated_at` | TEXT | yes | ISO-8601 |
 
@@ -126,9 +125,18 @@ Indexes:
 
 Notes:
 
-- `content_sha256` supports duplicate detection at source level.
-- v0.1.1 can allow duplicate imports but should return a warning or source metadata indicating a duplicate hash exists.
-- `text_content` is acceptable because v0.1.1 is local-first and small-scale. For large files, a later version may move extracted text out of SQLite.
+- `knowledge_source` stores metadata only.
+- v0.1.1 does not store full `text_content` in the `knowledge_source` table.
+- `knowledge_chunk.content` is the primary text source for search, UI display, and Evidence creation.
+- Local `extracted.txt` is rebuild/debug material, not the UI query source of truth.
+- Paste and file imports both write normalized extracted text to local `extracted.txt`.
+- SQLite stores source metadata plus chunks. Do not introduce a separate full-body text copy in SQLite.
+- `content_sha256` is always computed from normalized extracted text.
+- Paste and file imports use the same normalized extracted text hash semantics.
+- v0.1.1 does not add `file_sha256`.
+- Duplicate detection is based on `content_sha256`.
+- Duplicate import strategy is warn only. Do not block import.
+- API responses may return `is_duplicate: true` and `duplicate_of_source_id`.
 
 ### 3.2 `knowledge_chunk`
 
@@ -162,11 +170,12 @@ Indexes:
 - `idx_knowledge_chunk_source_order` on `(source_id, chunk_index)`
 - `idx_knowledge_chunk_created_at`
 
-Optional SQLite FTS:
+SQLite search:
 
-- v0.1.1 may add `knowledge_chunk_fts` using SQLite FTS5 if available locally.
-- FTS is optional and should not block MVP if unavailable.
-- Fallback search must work with simple `LIKE` queries.
+- FTS5 is deferred.
+- v0.1.1 does not require or create an FTS table.
+- Acceptance only requires SQLite `LIKE` search against `knowledge_chunk.content`.
+- Later versions may introduce FTS5 or semantic search under a separate spec.
 
 ### 3.3 Evidence Table Change
 
@@ -227,8 +236,9 @@ Behavior:
 2. Normalize text.
 3. Compute `content_sha256`.
 4. Create `knowledge_source` with `source_type = paste`.
-5. Create `knowledge_chunk` records.
-6. Return source with chunk summary.
+5. Write normalized extracted text to local `extracted.txt`.
+6. Create `knowledge_chunk` records.
+7. Return source with chunk summary and duplicate warning metadata when applicable.
 
 Response:
 
@@ -238,7 +248,9 @@ Response:
     "id": "uuid",
     "source_type": "paste",
     "title": "渠道转化会议纪要",
-    "content_sha256": "..."
+    "content_sha256": "...",
+    "is_duplicate": false,
+    "duplicate_of_source_id": null
   },
   "chunks": [
     {
@@ -271,13 +283,22 @@ Supported v0.1.1 formats:
 
 PDF, DOCX, web pages, images, OCR, and binary parsing are out of scope for v0.1.1 unless a future patch explicitly adds them.
 
+Implementation dependency:
+
+- FastAPI file upload requires `python-multipart`.
+- If `POST /knowledge-sources/file` is implemented, `apps/api/requirements.txt` and README local setup instructions must be updated.
+- v0.1.1 still supports both paste and file ingestion, but implementation may complete paste ingestion first.
+- File upload must not block paste ingestion implementation or paste ingestion acceptance.
+
 Behavior:
 
 1. Store the uploaded file locally.
 2. Extract normalized text for supported formats.
-3. Create `knowledge_source` with `source_type = file`.
-4. Create chunks.
-5. Return source and chunk summary.
+3. Compute `content_sha256` from normalized extracted text, not file bytes.
+4. Write normalized extracted text to local `extracted.txt`.
+5. Create `knowledge_source` with `source_type = file`.
+6. Create chunks.
+7. Return source and chunk summary, including duplicate warning metadata when applicable.
 
 ### 4.3 List Knowledge Sources
 
@@ -311,8 +332,8 @@ Returns:
 
 Search strategy:
 
-- Use FTS5 if configured and available.
-- Otherwise use SQLite `LIKE` against `knowledge_chunk.content`.
+- Use SQLite `LIKE` against `knowledge_chunk.content`.
+- v0.1.1 does not create or require FTS5 tables.
 
 Response item:
 
@@ -360,15 +381,15 @@ Notes:
 - It should not create a Node.
 - It should not infer stance automatically.
 
-### 4.7 Evidence Query Should Include Knowledge Source Metadata
+### 4.7 Evidence Query Compatibility
 
 Existing endpoint:
 
 `GET /evidence?target_type=&target_id=`
 
-v0.1.1 should continue to work exactly as before.
+v0.1.1 must remain backward compatible.
 
-When an Evidence record has `knowledge_chunk_id`, the response may include an optional nested display object:
+Evidence response should add a nullable `knowledge_chunk_id` field:
 
 ```json
 {
@@ -378,15 +399,16 @@ When an Evidence record has `knowledge_chunk_id`, the response may include an op
   "evidence_type": "document",
   "stance": "supports",
   "content": "...",
-  "knowledge_chunk_id": "chunk-id",
-  "knowledge_source": {
-    "id": "source-id",
-    "title": "渠道转化会议纪要"
-  }
+  "knowledge_chunk_id": "chunk-id"
 }
 ```
 
-If changing `EvidenceRecord` response shape is considered too large, keep `knowledge_chunk_id` on the base record and let the frontend fetch chunk/source detail separately.
+Rules:
+
+- Do not default to nested `knowledge_source` metadata in `GET /evidence`.
+- Frontend should query chunk/source detail APIs when it needs source details.
+- `GET /knowledge-chunks/search` may return `source_title` as query response display metadata.
+- `source_title` is not stored on `knowledge_chunk`; it is joined or assembled at query time.
 
 ---
 
@@ -475,8 +497,12 @@ apps/api/storage/knowledge/
 Rules:
 
 - Uploaded file bytes are stored locally.
-- Extracted normalized text may be stored both in SQLite and as `extracted.txt`.
-- SQLite remains the authoritative index for sources and chunks.
+- Paste imports also write normalized extracted text to `extracted.txt`.
+- Extracted normalized text is stored locally as `extracted.txt` for rebuild/debug.
+- Extracted normalized text is not stored as a full-body copy in `knowledge_source`.
+- SQLite stores source metadata and chunk content only.
+- `knowledge_chunk.content` is the primary fact source for search, UI display, and Evidence creation.
+- `extracted.txt` is not the UI query source of truth.
 - No cloud sync.
 - No external object storage.
 - No remote parsing service.
@@ -505,7 +531,14 @@ Pasted text flow:
 3. Backend trims leading/trailing whitespace.
 4. Backend collapses excessive blank lines if needed.
 5. Backend computes SHA-256 over normalized content.
-6. Backend stores source and chunks.
+6. Backend writes normalized content to local `extracted.txt`.
+7. Backend stores source metadata and chunks.
+
+Hash rule:
+
+- `content_sha256` is computed from normalized extracted text.
+- Paste and file imports use the same hash semantics.
+- Duplicate detection is warn only and does not block import.
 
 Title derivation:
 
@@ -544,9 +577,19 @@ Upload flow:
 1. Validate file extension and size.
 2. Store original file locally.
 3. Extract text.
-4. Store `knowledge_source`.
-5. Store `knowledge_chunk`.
-6. Return source and chunk summary.
+4. Normalize extracted text with the same rules used for pasted text.
+5. Compute `content_sha256` from normalized extracted text.
+6. Store normalized extracted text locally as `extracted.txt`.
+7. Store `knowledge_source` metadata.
+8. Store `knowledge_chunk`.
+9. Return source and chunk summary, including duplicate warning metadata when applicable.
+
+Implementation dependency:
+
+- FastAPI file upload requires `python-multipart`.
+- If file upload is implemented, update backend dependency list and README setup instructions.
+- Paste ingestion should be implemented and accepted first.
+- File upload must not block paste ingestion implementation or acceptance.
 
 If extraction fails:
 
@@ -563,7 +606,7 @@ Recommended defaults:
 
 - Target chunk size: 1,000 characters.
 - Soft minimum chunk size: 300 characters.
-- Overlap: 100 characters.
+- Default overlap: 0 characters.
 - Preserve paragraph boundaries when possible.
 - Fall back to character boundaries for long paragraphs.
 
@@ -573,7 +616,11 @@ Chunking rules:
 2. Accumulate paragraphs until target size is reached.
 3. If a paragraph exceeds target size, split by sentence punctuation if possible.
 4. If still too large, split by character count.
-5. Add overlap from the previous chunk only when it does not create confusing duplicates.
+5. Normal paragraph-accumulated chunks have no overlap.
+6. Only long paragraphs that must be hard-split by character count use overlap.
+7. Hard-split long paragraph chunks use a fixed 100-character overlap.
+8. The 100-character overlap comes from the end of the previous hard-split chunk.
+9. The overlap rule must be deterministic, testable, and reproducible from the same normalized text.
 
 Metadata:
 
@@ -671,12 +718,16 @@ v0.1.1 must not include:
 - Existing v0.1 tables continue to work.
 - Existing Evidence records without `knowledge_chunk_id` remain valid.
 - Evidence created from a chunk stores `knowledge_chunk_id`.
+- `knowledge_source` stores metadata only and does not store full `text_content`.
+- `knowledge_chunk.content` is the primary text source for search, UI display, and Evidence creation.
+- No FTS table is required for v0.1.1.
 
 ### Pasted Text
 
 - User can paste text and title.
 - System creates one `knowledge_source`.
 - System creates one or more ordered `knowledge_chunk` records.
+- System writes normalized extracted text to local `extracted.txt`.
 - Chunks are retrievable from source detail.
 
 ### Uploaded File
@@ -684,13 +735,16 @@ v0.1.1 must not include:
 - User can upload a supported local text-based file.
 - System stores the original file locally.
 - System extracts text.
+- System writes normalized extracted text to local `extracted.txt`.
 - System creates source and chunks.
 - Unsupported file types fail with a clear error.
+- File upload depends on `python-multipart`, but file upload does not block paste ingestion acceptance.
 
 ### Search / View
 
 - User can search chunks by keyword.
 - Search works without Vector DB.
+- Search works through SQLite `LIKE` without FTS5.
 - Node Detail can show matching chunks.
 - User can open a chunk/source preview.
 
@@ -754,7 +808,7 @@ Large pasted sources may make the local SQLite database heavy.
 
 Mitigation:
 
-Set file and text size limits. Store original files locally and keep chunks deterministic.
+Set file and text size limits. Store original files and `extracted.txt` locally. Store source metadata plus chunks in SQLite, without a full-body `text_content` copy.
 
 ### Search Quality
 
@@ -764,7 +818,7 @@ Simple keyword search may be less powerful than semantic search.
 
 Mitigation:
 
-Accept this as a v0.1.1 tradeoff. Do not introduce Vector DB.
+Accept this as a v0.1.1 tradeoff. Do not introduce Vector DB, embeddings, FTS5 requirements, or semantic search.
 
 ### Backward Compatibility
 
@@ -774,7 +828,7 @@ Changing Evidence response shape may break existing frontend.
 
 Mitigation:
 
-Add nullable fields and optional nested metadata only. Existing fields remain stable.
+Add only nullable `knowledge_chunk_id` to the base Evidence response. Do not default to nested `knowledge_source` metadata.
 
 ---
 
@@ -792,31 +846,43 @@ Add nullable fields and optional nested metadata only. Existing fields remain st
 4. Implement `POST /knowledge-sources/text`.
 5. Implement source detail and chunk list APIs.
 6. Implement keyword search with SQLite `LIKE`.
-7. Implement upload API for `.txt`, `.md`, `.csv`, `.json`.
-8. Implement `POST /knowledge-chunks/{chunk_id}/evidence`.
-9. Extend Evidence query response or frontend lookup to show source chunk.
+7. Implement `POST /knowledge-chunks/{chunk_id}/evidence`.
+8. Extend Evidence response with nullable `knowledge_chunk_id`.
+9. Add frontend lookup to show source chunk details when needed.
 10. Add Node Detail Knowledge search / attach UI.
-11. Add minimal `/knowledge` library page only if needed.
-12. Run regression:
+11. Implement upload API for `.txt`, `.md`, `.csv`, `.json`; add `python-multipart` when this step begins.
+12. Add minimal `/knowledge` library page only if needed.
+13. Run regression:
     - v0.1 E2E smoke path
     - Knowledge import path
     - Evidence-from-chunk path
 
 ---
 
-## 15. Open Decisions For Architecture Audit
+## 15. Architecture Decisions Adopted After Audit
 
-These should be reviewed before implementation:
+These decisions are accepted for v0.1.1 implementation:
 
-1. Should `knowledge_source.text_content` be stored in SQLite for v0.1.1, or should SQLite store only metadata plus chunks?
-2. Should SQLite FTS5 be required, optional, or deferred?
-3. Should Evidence API include nested knowledge source metadata, or should frontend fetch chunk/source separately?
-4. What exact file size limit should v0.1.1 enforce?
-5. Should duplicate `content_sha256` block import, warn only, or create a second source record?
+1. `knowledge_source.text_content` is not stored in SQLite for v0.1.1.
+   - SQLite stores source metadata plus `knowledge_chunk.content`.
+   - Local `extracted.txt` stores normalized full extracted text for rebuild/debug.
+2. SQLite FTS5 is deferred.
+   - v0.1.1 does not require or create FTS tables.
+   - Acceptance requires SQLite `LIKE` search only.
+3. Evidence API does not default to nested knowledge source metadata.
+   - Evidence response adds nullable `knowledge_chunk_id`.
+   - Frontend fetches chunk/source detail separately when needed.
+4. File and text limits:
+   - Max pasted text size: 200 KB.
+   - Max uploaded file size: 5 MB.
+   - Max chunk count per source: 500.
+5. Duplicate `content_sha256` behavior:
+   - Warn only.
+   - Do not block import.
+   - API may return `is_duplicate: true` and `duplicate_of_source_id`.
 
-Default recommendation:
+Implementation note:
 
-- Store metadata, chunks, and normalized text in SQLite for v0.1.1 simplicity.
-- Make FTS5 optional.
-- Add `knowledge_chunk_id` to Evidence and keep nested metadata optional.
-- Warn on duplicate source hash but do not block import.
+- `content_sha256` is always computed from normalized extracted text.
+- v0.1.1 does not add `file_sha256`.
+- Search response may include `source_title` as query response display metadata. It is not persisted on `knowledge_chunk`.
