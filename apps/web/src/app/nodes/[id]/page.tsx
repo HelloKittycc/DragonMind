@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getNode } from "@/api-client/client";
 import { formatDateTime, nodeSummary } from "@/api-client/display";
 import { EvidencePanel } from "@/components/evidence/EvidencePanel";
+import { KnowledgeSearchPanel } from "@/components/knowledge/KnowledgeSearchPanel";
 import { AppShell, PageHeader } from "@/components/layout/AppShell";
 import { ArchiveButton } from "@/components/nodes/ArchiveButton";
 import { AppendMessageForm } from "@/components/nodes/AppendMessageForm";
@@ -45,6 +46,7 @@ export default async function NodeDetailPage({ params }: Props) {
             <StageProgressionForm nodeId={detail.node.id} nodeType={detail.node.node_type} />
             <TaskPanel tasks={detail.tasks} />
             <RelationPanel nodeId={detail.node.id} relations={detail.relations} />
+            <KnowledgeSearchPanel nodeId={detail.node.id} />
             <EvidencePanel evidence={detail.evidence} />
             <section className="panel danger-zone">
               <div>

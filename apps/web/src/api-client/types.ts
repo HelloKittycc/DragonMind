@@ -61,6 +61,20 @@ export type EvidenceRecord = {
   content: string;
   source: string | null;
   source_url: string | null;
+  knowledge_chunk_id: string | null;
+  created_at: string;
+};
+
+export type KnowledgeChunkSearchResult = {
+  id: string;
+  source_id: string;
+  source_title: string;
+  chunk_index: number;
+  content: string;
+  snippet: string;
+  char_start: number | null;
+  char_end: number | null;
+  token_estimate: number | null;
   created_at: string;
 };
 

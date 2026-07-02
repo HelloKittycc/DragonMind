@@ -18,6 +18,7 @@ export function EvidencePanel({ evidence }: Props) {
         evidence.map((item) => (
           <article className="evidence-row" key={item.id}>
             <strong>{evidenceSummary(item)}</strong>
+            {item.knowledge_chunk_id ? <span className="soft-badge evidence-source-badge">来自资料库</span> : null}
             <p>{item.content}</p>
             {item.source || item.source_url ? (
               <p className="muted">

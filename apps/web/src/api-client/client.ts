@@ -1,6 +1,7 @@
 import type {
   DiscoveryFeedItem,
   EvidenceRecord,
+  KnowledgeChunkSearchResult,
   MessageRecord,
   NodeDetail,
   NodeRecord,
@@ -143,5 +144,30 @@ export function createEvidence(payload: {
 export function getEvidence(targetType: string, targetId: string): Promise<EvidenceRecord[]> {
   return request<EvidenceRecord[]>(`/evidence?target_type=${encodeURIComponent(targetType)}&target_id=${encodeURIComponent(targetId)}`, {
     cache: "no-store"
+  });
+}
+
+export function searchKnowledgeChunks(query: string, limit = 10): Promise<KnowledgeChunkSearchResult[]> {
+  return request<KnowledgeChunkSearchResult[]>(
+    `/knowledge-chunks/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(String(limit))}`,
+    {
+      cache: "no-store"
+    }
+  );
+}
+
+export function createEvidenceFromKnowledgeChunk(
+  chunkId: string,
+  payload: {
+    target_type: "node" | "relation";
+    target_id: string;
+    evidence_type: string;
+    stance: "supports" | "contradicts" | "neutral";
+    content_override?: string;
+  }
+): Promise<EvidenceRecord> {
+  return request<EvidenceRecord>(`/knowledge-chunks/${chunkId}/evidence`, {
+    method: "POST",
+    body: JSON.stringify(payload)
   });
 }
