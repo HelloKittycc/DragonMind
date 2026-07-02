@@ -1143,11 +1143,40 @@ button {
   position: relative;
 }
 
+.knowledge-panel h2,
+.cited-evidence-panel h2 {
+  margin-bottom: 6px;
+}
+
 .knowledge-panel-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+}
+
+.knowledge-panel-header .button {
+  flex: 0 0 auto;
+}
+
+.knowledge-source-card {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--sf-sage-border);
+  border-radius: 14px;
+  background: var(--sf-sage-soft);
+  padding: 14px 16px;
+}
+
+.knowledge-source-card strong {
+  color: var(--sf-sage-deep);
+  font-size: 13px;
+}
+
+.knowledge-source-card p {
+  margin: 0;
+  color: var(--sf-ink);
+  font-size: 13px;
 }
 
 .knowledge-search-form {
@@ -1207,11 +1236,11 @@ button {
 
 .knowledge-result {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
-  align-items: start;
-  border-top: 1px solid #e7ece8;
-  padding: 14px 0 0;
+  border: 1px solid #e7ece8;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 14px;
 }
 
 .knowledge-result p,
@@ -1219,9 +1248,25 @@ button {
   margin: 0;
 }
 
+.knowledge-result .text-action {
+  width: fit-content;
+}
+
 .knowledge-result strong,
 .knowledge-excerpt {
   overflow-wrap: anywhere;
+}
+
+.knowledge-result-tag {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  background: var(--sf-sage-soft);
+  color: var(--sf-sage-deep);
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .knowledge-excerpt {
@@ -1231,6 +1276,13 @@ button {
   border-radius: 8px;
   background: #fbfcf8;
   padding: 12px;
+}
+
+.knowledge-modal-source {
+  display: block;
+  margin: -8px 0 10px;
+  color: var(--sf-sage-deep);
+  font-size: 13px;
 }
 
 .field-label {
@@ -1272,6 +1324,17 @@ button {
 
 .evidence-source-badge {
   width: fit-content;
+}
+
+.cited-evidence-panel {
+  border-color: var(--sf-warm-border);
+  background: linear-gradient(180deg, #ffffff 0%, #fffdf8 100%);
+}
+
+.cited-evidence-panel .evidence-row {
+  border: 1px solid #eee3cf;
+  border-radius: 14px;
+  background: var(--sf-warm);
 }
 
 .relation-card h3,

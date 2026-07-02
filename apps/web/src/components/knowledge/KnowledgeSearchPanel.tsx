@@ -47,7 +47,7 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
   function readableImportError(error: unknown) {
     const message = error instanceof Error ? error.message : "";
     if (message.includes("unsupported knowledge file type")) {
-      return "不支持的文件类型。请上传 .txt、.md、.csv 或 .json。";
+      return "这类文件暂时不能读取。请上传 .txt、.md、.csv 或 .json。";
     }
     if (message.includes("uploaded file exceeds max size")) {
       return "文件超过 5 MB，请拆分后再上传。";
@@ -61,7 +61,7 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
     if (message.includes("knowledge content is empty")) {
       return "资料内容不能为空。";
     }
-    return "资料导入失败，请稍后重试。";
+    return "资料补充失败，请稍后重试。";
   }
 
   async function onSearch(event: FormEvent<HTMLFormElement>) {
@@ -112,7 +112,7 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
         content_override: contentOverride.trim() || undefined
       });
       setSelectedChunk(null);
-      setSuccessMessage("已挂为证据。");
+      setSuccessMessage("已引用到当前线索。");
       router.refresh();
     } catch {
       setAttachError("挂为证据失败，请稍后重试。");
@@ -134,7 +134,7 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
       setPasteTitle("");
       setPasteContent("");
       setImportSuccess(
-        response.is_duplicate ? "已导入资料。这段内容之前出现过，可以继续搜索并挂为证据。" : "已导入资料，可以搜索并挂为证据。"
+        response.is_duplicate ? "已补充资料。这段内容之前出现过，可以继续搜索并引用。" : "已补充资料，可以搜索并引用。"
       );
     } catch (error) {
       setImportError(readableImportError(error));
@@ -157,7 +157,7 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
       setFileTitle("");
       setSelectedFile(null);
       setImportSuccess(
-        response.is_duplicate ? "已上传资料。这份内容之前出现过，可以继续搜索并挂为证据。" : "已上传资料，可以搜索并挂为证据。"
+        response.is_duplicate ? "已补充资料。这份内容之前出现过，可以继续搜索并引用。" : "已补充资料，可以搜索并引用。"
       );
     } catch (error) {
       setImportError(readableImportError(error));
@@ -170,9 +170,9 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
     <section className="panel stack knowledge-panel">
       <div className="knowledge-panel-header">
         <div>
-          <p className="section-kicker">Knowledge</p>
-          <h2>资料搜索</h2>
-          <p className="muted">搜索已导入的资料，并把相关片段挂为证据。</p>
+          <p className="section-kicker">依据</p>
+          <h2>外部依据</h2>
+          <p className="muted">为这条线索寻找可以支撑、反驳或补充的资料片段。</p>
         </div>
         <button
           className="button button-secondary"
@@ -183,8 +183,15 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
           }}
           type="button"
         >
-          添加资料
+          补充资料
         </button>
+      </div>
+
+      <div className="knowledge-source-card">
+        <div>
+          <strong>先补充资料，再选择引用</strong>
+          <p>DragonMind 不会自动把资料变成结论。只有你确认后，片段才会进入下方依据区。</p>
+        </div>
       </div>
 
       <form className="knowledge-search-form" onSubmit={onSearch}>
@@ -192,7 +199,7 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
           aria-label="搜索资料关键词"
           className="knowledge-search-input"
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="搜索资料关键词……"
+          placeholder="搜索可以引用的资料片段……"
           type="search"
           value={query}
         />
@@ -204,9 +211,9 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
       {searchError ? <p className="error">{searchError}</p> : null}
       {successMessage ? <p className="success-inline">{successMessage}</p> : null}
 
-      {!query.trim() ? <p className="muted">输入关键词搜索已导入资料。</p> : null}
+      {!query.trim() ? <p className="muted">输入关键词，寻找能帮助判断当前线索的资料。</p> : null}
       {query.trim() && hasSearched && !isSearching && results.length === 0 && !searchError ? (
-        <p className="muted">没有找到匹配资料。你可以先导入一段资料。</p>
+        <p className="muted">没有找到匹配资料。你可以先补充一段外部资料。</p>
       ) : null}
 
       {results.length > 0 ? (
@@ -214,12 +221,13 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
           {results.map((chunk) => (
             <article className="knowledge-result" key={chunk.id}>
               <div>
+                <span className="knowledge-result-tag">可引用依据</span>
                 <strong>{chunk.source_title}</strong>
                 <p>{chunk.snippet || chunk.content}</p>
-                <p className="muted">片段 {chunk.chunk_index + 1}</p>
+                <p className="muted">命中片段 {chunk.chunk_index + 1} · 同一资料可能出现多个片段</p>
               </div>
               <button className="text-action" onClick={() => openAttachModal(chunk)} type="button">
-                挂为证据
+                引用为依据
               </button>
             </article>
           ))}
@@ -227,17 +235,18 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
       ) : null}
 
       {selectedChunk ? (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="挂为证据">
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="引用这段资料">
           <div className="knowledge-modal panel stack">
             <div>
-              <p className="section-kicker">挂为证据</p>
-              <h2>{selectedChunk.source_title}</h2>
+              <p className="section-kicker">引用依据</p>
+              <h2>引用这段资料</h2>
+              <strong className="knowledge-modal-source">{selectedChunk.source_title}</strong>
               <p className="knowledge-excerpt">{selectedChunk.snippet || selectedChunk.content}</p>
-              <p className="muted">目标：当前 Node</p>
+              <p className="muted">确认后，这段资料会写入当前线索的“已引用依据”。</p>
             </div>
 
             <label className="field-label" htmlFor="knowledge-stance">
-              证据立场
+              这段资料如何作用于当前线索
             </label>
             <select
               className="knowledge-search-input"
@@ -253,13 +262,13 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
             </select>
 
             <label className="field-label" htmlFor="knowledge-override">
-              可选摘录
+              可选引用摘要
             </label>
             <textarea
               className="knowledge-textarea"
               id="knowledge-override"
               onChange={(event) => setContentOverride(event.target.value)}
-              placeholder="可选：保留为空则使用原资料片段。"
+              placeholder="可选：保留为空则直接引用原资料片段。"
               value={contentOverride}
             />
 
@@ -269,7 +278,7 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
                 取消
               </button>
               <button className="button button-secondary" disabled={isAttaching} onClick={onAttach} type="button">
-                {isAttaching ? "提交中" : "确认挂为证据"}
+                {isAttaching ? "引用中" : "确认引用"}
               </button>
             </div>
           </div>
@@ -277,18 +286,18 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
       ) : null}
 
       {isImportOpen ? (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="添加资料">
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="补充外部资料">
           <div className="knowledge-modal panel stack">
             <div>
-              <p className="section-kicker">Knowledge</p>
-              <h2>添加资料</h2>
-              <p className="muted">导入后不会自动变成证据，你可以先搜索，再手动挂到当前 Node。</p>
+              <p className="section-kicker">外部资料</p>
+              <h2>补充外部资料</h2>
+              <p className="muted">资料会先进入本地资料库。你仍需要搜索并手动引用，才会成为当前线索的依据。</p>
             </div>
 
             <form className="knowledge-import-card" onSubmit={onPasteImport}>
               <div>
-                <h3>粘贴资料</h3>
-                <p className="muted">适合会议纪要、判断依据或短文本材料。</p>
+                <h3>粘贴一段资料</h3>
+                <p className="muted">适合会议纪要、背景说明或短文本材料。</p>
               </div>
               <label className="field-label" htmlFor="knowledge-paste-title">
                 标题
@@ -311,13 +320,13 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
                 value={pasteContent}
               />
               <button className="button button-secondary" disabled={isImporting || !pasteContent.trim()} type="submit">
-                {isImporting ? "导入中" : "导入资料"}
+                {isImporting ? "补充中" : "补充资料"}
               </button>
             </form>
 
             <form className="knowledge-import-card" onSubmit={onFileImport}>
               <div>
-                <h3>上传文件</h3>
+                <h3>上传文本文件</h3>
                 <p className="muted">支持 .txt、.md、.csv、.json，最大 5 MB。</p>
               </div>
               <label className="field-label" htmlFor="knowledge-file-title">
@@ -341,7 +350,7 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
                 type="file"
               />
               <button className="button button-secondary" disabled={isImporting || !selectedFile} type="submit">
-                {isImporting ? "上传中" : "上传资料"}
+                {isImporting ? "上传中" : "上传并补充"}
               </button>
             </form>
 
