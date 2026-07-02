@@ -36,18 +36,34 @@ def create_evidence(
     content: str,
     source: Optional[str],
     source_url: Optional[str],
+    knowledge_chunk_id: Optional[str] = None,
 ) -> dict:
     related_node_ids = _node_ids_for_target(conn, target_type, target_id)
+    if knowledge_chunk_id is not None:
+        row = conn.execute("SELECT id FROM knowledge_chunk WHERE id = ?", (knowledge_chunk_id,)).fetchone()
+        if row is None:
+            raise EvidenceTargetNotFoundError("Evidence knowledge chunk source not found")
     evidence_id = _new_id()
     timestamp = now_iso()
     conn.execute(
         """
         INSERT INTO evidence (
-          id, target_type, target_id, evidence_type, stance, content, source, source_url, created_at
+          id, target_type, target_id, evidence_type, stance, content, source, source_url, knowledge_chunk_id, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (evidence_id, target_type, target_id, evidence_type, stance, content, source, source_url, timestamp),
+        (
+            evidence_id,
+            target_type,
+            target_id,
+            evidence_type,
+            stance,
+            content,
+            source,
+            source_url,
+            knowledge_chunk_id,
+            timestamp,
+        ),
     )
     revive_sleeping_tasks_for_nodes(conn, related_node_ids)
     row = conn.execute("SELECT * FROM evidence WHERE id = ?", (evidence_id,)).fetchone()

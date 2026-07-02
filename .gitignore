@@ -4,6 +4,7 @@ __pycache__/
 
 apps/api/.venv/
 apps/api/dragonmind.sqlite3
+apps/api/storage/
 
 apps/web/node_modules/
 apps/web/.next/

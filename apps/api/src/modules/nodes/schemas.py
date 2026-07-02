@@ -128,6 +128,7 @@ class EvidenceRecord(BaseModel):
     content: str
     source: Optional[str]
     source_url: Optional[str]
+    knowledge_chunk_id: Optional[str] = None
     created_at: str
 
 
