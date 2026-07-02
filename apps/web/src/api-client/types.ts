@@ -78,6 +78,36 @@ export type KnowledgeChunkSearchResult = {
   created_at: string;
 };
 
+export type KnowledgeSourceRecord = {
+  id: string;
+  source_type: "paste" | "file";
+  title: string;
+  original_filename: string | null;
+  mime_type: string | null;
+  storage_path: string;
+  content_sha256: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type KnowledgeChunkRecord = {
+  id: string;
+  source_id: string;
+  chunk_index: number;
+  content: string;
+  char_start: number | null;
+  char_end: number | null;
+  token_estimate: number | null;
+  created_at: string;
+};
+
+export type CreateKnowledgeSourceResponse = {
+  source: KnowledgeSourceRecord;
+  chunks: KnowledgeChunkRecord[];
+  is_duplicate: boolean;
+  duplicate_of_source_id: string | null;
+};
+
 export type NodeDetail = {
   node: NodeRecord;
   messages: MessageRecord[];

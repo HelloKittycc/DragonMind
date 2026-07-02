@@ -11,7 +11,9 @@ from src.modules.evidence.service import EvidenceTargetNotFoundError, create_evi
 from src.shared.constants import (
     KNOWLEDGE_HARD_SPLIT_OVERLAP_CHARS,
     KNOWLEDGE_MAX_CHUNKS_PER_SOURCE,
+    KNOWLEDGE_MAX_UPLOADED_FILE_BYTES,
     KNOWLEDGE_SOFT_MIN_CHARS,
+    KNOWLEDGE_SUPPORTED_EXTENSIONS,
     KNOWLEDGE_TARGET_CHARS,
 )
 from src.shared.time import now_iso
@@ -67,6 +69,13 @@ def _title_from_text(normalized_text: str, title: Optional[str]) -> str:
         return title.strip()
     first_line = next((line.strip() for line in normalized_text.splitlines() if line.strip()), "")
     return (first_line or "Untitled knowledge source")[:80]
+
+
+def _title_from_file(original_filename: str, title: Optional[str]) -> str:
+    if title and title.strip():
+        return title.strip()
+    stem = Path(original_filename).stem.strip()
+    return (stem or "Untitled knowledge source")[:80]
 
 
 def _token_estimate(content: str) -> int:
@@ -199,9 +208,74 @@ def create_text_source(conn: sqlite3.Connection, title: Optional[str], content: 
     }
 
 
+def create_file_source(
+    conn: sqlite3.Connection,
+    title: Optional[str],
+    original_filename: str,
+    mime_type: Optional[str],
+    content: bytes,
+) -> dict:
+    safe_filename = Path(original_filename or "").name
+    extension = Path(safe_filename).suffix.lower()
+    if not safe_filename or extension not in KNOWLEDGE_SUPPORTED_EXTENSIONS:
+        raise KnowledgeValidationError("unsupported knowledge file type")
+    if len(content) > KNOWLEDGE_MAX_UPLOADED_FILE_BYTES:
+        raise KnowledgeValidationError("uploaded file exceeds max size")
+
+    try:
+        extracted_text = content.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise KnowledgeValidationError("knowledge file must be UTF-8 text") from exc
+
+    normalized = normalize_text(extracted_text)
+    if not normalized:
+        raise KnowledgeValidationError("knowledge content is empty")
+
+    digest = content_sha256(normalized)
+    chunks = chunk_text(normalized)
+    duplicate = conn.execute(
+        """
+        SELECT id FROM knowledge_source
+        WHERE content_sha256 = ?
+        ORDER BY created_at ASC
+        LIMIT 1
+        """,
+        (digest,),
+    ).fetchone()
+    source_id = _new_id()
+    timestamp = now_iso()
+    source_title = _title_from_file(safe_filename, title)
+    storage_dir = KNOWLEDGE_STORAGE_DIR / source_id
+    _write_original_file(storage_dir, extension, content)
+    _write_extracted_text(storage_dir, normalized)
+
+    conn.execute(
+        """
+        INSERT INTO knowledge_source (
+          id, source_type, title, original_filename, mime_type, storage_path,
+          content_sha256, created_at, updated_at
+        )
+        VALUES (?, 'file', ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (source_id, source_title, safe_filename, mime_type, str(storage_dir), digest, timestamp, timestamp),
+    )
+    _insert_chunks(conn, source_id, chunks, timestamp)
+    return {
+        "source": _get_source(conn, source_id),
+        "chunks": list_chunks_for_source(conn, source_id),
+        "is_duplicate": duplicate is not None,
+        "duplicate_of_source_id": duplicate["id"] if duplicate else None,
+    }
+
+
 def _write_extracted_text(storage_dir: Path, normalized_text: str) -> None:
     storage_dir.mkdir(parents=True, exist_ok=True)
     (storage_dir / "extracted.txt").write_text(normalized_text, encoding="utf-8")
+
+
+def _write_original_file(storage_dir: Path, extension: str, content: bytes) -> None:
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    (storage_dir / f"original{extension}").write_bytes(content)
 
 
 def _insert_chunks(conn: sqlite3.Connection, source_id: str, chunks: list[ChunkDraft], timestamp: str) -> None:

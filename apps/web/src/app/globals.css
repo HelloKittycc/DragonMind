@@ -1143,6 +1143,13 @@ button {
   position: relative;
 }
 
+.knowledge-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
 .knowledge-search-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1168,6 +1175,29 @@ button {
   min-height: 112px;
   padding: 12px;
   resize: vertical;
+}
+
+.knowledge-file-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 10px;
+}
+
+.knowledge-import-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #e7ece8;
+  border-radius: 10px;
+  background: #fbfcf8;
+  padding: 14px;
+}
+
+.knowledge-import-card h3 {
+  margin: 0;
+  font-size: 16px;
 }
 
 .knowledge-result-list {

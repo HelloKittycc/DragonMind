@@ -33,6 +33,8 @@ python3 -m pip install -r requirements.txt
 PYTHONPATH=. python3 -m uvicorn src.main.main:app --host 127.0.0.1 --port 8000
 ```
 
+The backend requirements include `python-multipart` for local `.txt`, `.md`, `.csv`, and `.json` knowledge file uploads.
+
 Backend URL:
 
 ```text

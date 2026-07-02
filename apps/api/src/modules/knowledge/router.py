@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 
 from src.db.database import connection_scope
 from src.modules.evidence.schemas import EvidenceRecord
@@ -18,6 +18,7 @@ from src.modules.knowledge.service import (
     KnowledgeSourceNotFoundError,
     KnowledgeValidationError,
     create_evidence_from_chunk,
+    create_file_source,
     create_text_source,
     get_source_detail,
     list_sources,
@@ -34,6 +35,16 @@ def post_text_source(payload: CreateTextKnowledgeSourceRequest) -> dict:
     with connection_scope() as conn:
         try:
             return create_text_source(conn, payload.title, payload.content)
+        except KnowledgeValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/knowledge-sources/file", response_model=CreateKnowledgeSourceResponse)
+def post_file_source(file: UploadFile = File(...), title: Optional[str] = Form(None)) -> dict:
+    with connection_scope() as conn:
+        try:
+            content = file.file.read()
+            return create_file_source(conn, title, file.filename or "", file.content_type, content)
         except KnowledgeValidationError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

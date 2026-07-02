@@ -2,7 +2,12 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createEvidenceFromKnowledgeChunk, searchKnowledgeChunks } from "@/api-client/client";
+import {
+  createEvidenceFromKnowledgeChunk,
+  createKnowledgeSourceFromText,
+  searchKnowledgeChunks,
+  uploadKnowledgeSourceFile
+} from "@/api-client/client";
 import type { KnowledgeChunkSearchResult } from "@/api-client/types";
 
 type Props = {
@@ -30,6 +35,34 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
   const [isAttaching, setIsAttaching] = useState(false);
   const [attachError, setAttachError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [pasteTitle, setPasteTitle] = useState("");
+  const [pasteContent, setPasteContent] = useState("");
+  const [fileTitle, setFileTitle] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importSuccess, setImportSuccess] = useState("");
+
+  function readableImportError(error: unknown) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("unsupported knowledge file type")) {
+      return "不支持的文件类型。请上传 .txt、.md、.csv 或 .json。";
+    }
+    if (message.includes("uploaded file exceeds max size")) {
+      return "文件超过 5 MB，请拆分后再上传。";
+    }
+    if (message.includes("knowledge file must be UTF-8 text")) {
+      return "文件需要是 UTF-8 文本格式。";
+    }
+    if (message.includes("pasted text exceeds max size")) {
+      return "粘贴内容超过 200 KB，请拆分后再导入。";
+    }
+    if (message.includes("knowledge content is empty")) {
+      return "资料内容不能为空。";
+    }
+    return "资料导入失败，请稍后重试。";
+  }
 
   async function onSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,12 +121,70 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
     }
   }
 
+  async function onPasteImport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsImporting(true);
+    setImportError("");
+    setImportSuccess("");
+    try {
+      const response = await createKnowledgeSourceFromText({
+        title: pasteTitle.trim() || undefined,
+        content: pasteContent
+      });
+      setPasteTitle("");
+      setPasteContent("");
+      setImportSuccess(
+        response.is_duplicate ? "已导入资料。这段内容之前出现过，可以继续搜索并挂为证据。" : "已导入资料，可以搜索并挂为证据。"
+      );
+    } catch (error) {
+      setImportError(readableImportError(error));
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
+  async function onFileImport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedFile) {
+      setImportError("请先选择一个文本文件。");
+      return;
+    }
+    setIsImporting(true);
+    setImportError("");
+    setImportSuccess("");
+    try {
+      const response = await uploadKnowledgeSourceFile(selectedFile, fileTitle.trim() || undefined);
+      setFileTitle("");
+      setSelectedFile(null);
+      setImportSuccess(
+        response.is_duplicate ? "已上传资料。这份内容之前出现过，可以继续搜索并挂为证据。" : "已上传资料，可以搜索并挂为证据。"
+      );
+    } catch (error) {
+      setImportError(readableImportError(error));
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
   return (
     <section className="panel stack knowledge-panel">
-      <div>
-        <p className="section-kicker">Knowledge</p>
-        <h2>资料搜索</h2>
-        <p className="muted">搜索已导入的资料，并把相关片段挂为证据。</p>
+      <div className="knowledge-panel-header">
+        <div>
+          <p className="section-kicker">Knowledge</p>
+          <h2>资料搜索</h2>
+          <p className="muted">搜索已导入的资料，并把相关片段挂为证据。</p>
+        </div>
+        <button
+          className="button button-secondary"
+          onClick={() => {
+            setIsImportOpen(true);
+            setImportError("");
+            setImportSuccess("");
+          }}
+          type="button"
+        >
+          添加资料
+        </button>
       </div>
 
       <form className="knowledge-search-form" onSubmit={onSearch}>
@@ -179,6 +270,86 @@ export function KnowledgeSearchPanel({ nodeId }: Props) {
               </button>
               <button className="button button-secondary" disabled={isAttaching} onClick={onAttach} type="button">
                 {isAttaching ? "提交中" : "确认挂为证据"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isImportOpen ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="添加资料">
+          <div className="knowledge-modal panel stack">
+            <div>
+              <p className="section-kicker">Knowledge</p>
+              <h2>添加资料</h2>
+              <p className="muted">导入后不会自动变成证据，你可以先搜索，再手动挂到当前 Node。</p>
+            </div>
+
+            <form className="knowledge-import-card" onSubmit={onPasteImport}>
+              <div>
+                <h3>粘贴资料</h3>
+                <p className="muted">适合会议纪要、判断依据或短文本材料。</p>
+              </div>
+              <label className="field-label" htmlFor="knowledge-paste-title">
+                标题
+              </label>
+              <input
+                className="knowledge-search-input"
+                id="knowledge-paste-title"
+                onChange={(event) => setPasteTitle(event.target.value)}
+                placeholder="例如：渠道会议纪要"
+                value={pasteTitle}
+              />
+              <label className="field-label" htmlFor="knowledge-paste-content">
+                内容
+              </label>
+              <textarea
+                className="knowledge-textarea"
+                id="knowledge-paste-content"
+                onChange={(event) => setPasteContent(event.target.value)}
+                placeholder="粘贴资料正文……"
+                value={pasteContent}
+              />
+              <button className="button button-secondary" disabled={isImporting || !pasteContent.trim()} type="submit">
+                {isImporting ? "导入中" : "导入资料"}
+              </button>
+            </form>
+
+            <form className="knowledge-import-card" onSubmit={onFileImport}>
+              <div>
+                <h3>上传文件</h3>
+                <p className="muted">支持 .txt、.md、.csv、.json，最大 5 MB。</p>
+              </div>
+              <label className="field-label" htmlFor="knowledge-file-title">
+                标题（可选）
+              </label>
+              <input
+                className="knowledge-search-input"
+                id="knowledge-file-title"
+                onChange={(event) => setFileTitle(event.target.value)}
+                placeholder="不填则使用文件名"
+                value={fileTitle}
+              />
+              <label className="field-label" htmlFor="knowledge-file">
+                文件
+              </label>
+              <input
+                accept=".txt,.md,.csv,.json"
+                className="knowledge-file-input"
+                id="knowledge-file"
+                onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                type="file"
+              />
+              <button className="button button-secondary" disabled={isImporting || !selectedFile} type="submit">
+                {isImporting ? "上传中" : "上传资料"}
+              </button>
+            </form>
+
+            {importError ? <p className="error">{importError}</p> : null}
+            {importSuccess ? <p className="success-inline">{importSuccess}</p> : null}
+            <div className="modal-actions">
+              <button className="button-ghost" disabled={isImporting} onClick={() => setIsImportOpen(false)} type="button">
+                关闭
               </button>
             </div>
           </div>

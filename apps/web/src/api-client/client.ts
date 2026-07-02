@@ -1,4 +1,5 @@
 import type {
+  CreateKnowledgeSourceResponse,
   DiscoveryFeedItem,
   EvidenceRecord,
   KnowledgeChunkSearchResult,
@@ -13,10 +14,11 @@ import type {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(init?.headers ?? {})
     }
   });
@@ -154,6 +156,28 @@ export function searchKnowledgeChunks(query: string, limit = 10): Promise<Knowle
       cache: "no-store"
     }
   );
+}
+
+export function createKnowledgeSourceFromText(payload: {
+  title?: string;
+  content: string;
+}): Promise<CreateKnowledgeSourceResponse> {
+  return request<CreateKnowledgeSourceResponse>("/knowledge-sources/text", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function uploadKnowledgeSourceFile(file: File, title?: string): Promise<CreateKnowledgeSourceResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (title?.trim()) {
+    formData.append("title", title.trim());
+  }
+  return request<CreateKnowledgeSourceResponse>("/knowledge-sources/file", {
+    method: "POST",
+    body: formData
+  });
 }
 
 export function createEvidenceFromKnowledgeChunk(
