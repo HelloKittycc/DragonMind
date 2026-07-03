@@ -12,6 +12,10 @@ Current main at design time: `112e55c`
 
 Date: 2026-06-29
 
+Last updated: 2026-07-03
+
+UX reference: `docs/12_KNOWLEDGE_UX_FINAL_DESIGN.md`
+
 ---
 
 ## 1. v0.1.1 Goal
@@ -19,6 +23,8 @@ Date: 2026-06-29
 v0.1.1 adds the smallest useful Knowledge Ingestion loop on top of the sealed v0.1 MVP.
 
 The goal is not to build RAG, long-term memory, semantic search, or automatic reasoning over documents.
+
+The finalized Knowledge UX frames position this as Executive Document Ingestion: users can bring real executive materials such as PDF, Word, PowerPoint, Excel, CSV, Markdown, text, and JSON files into DragonMind as background material. This broader file support does not change the Knowledge/Evidence boundary.
 
 The goal is:
 
@@ -48,7 +54,7 @@ Examples:
 
 - A pasted article.
 - A meeting note pasted from another tool.
-- A PDF or text document uploaded locally.
+- An executive document uploaded locally, such as PDF, DOCX, PPTX, XLSX, CSV, TXT, MD, or JSON.
 - A copied transcript.
 - A research note.
 
@@ -233,12 +239,13 @@ Request:
 Behavior:
 
 1. Validate non-empty content.
-2. Normalize text.
-3. Compute `content_sha256`.
-4. Create `knowledge_source` with `source_type = paste`.
-5. Write normalized extracted text to local `extracted.txt`.
-6. Create `knowledge_chunk` records.
-7. Return source with chunk summary and duplicate warning metadata when applicable.
+2. Validate pasted text size. Default max pasted text size is 1 MB.
+3. Normalize text.
+4. Compute `content_sha256`.
+5. Create `knowledge_source` with `source_type = paste`.
+6. Write normalized extracted text to local `extracted.txt`.
+7. Create `knowledge_chunk` records.
+8. Return source with chunk summary and duplicate warning metadata when applicable.
 
 Response:
 
@@ -276,29 +283,61 @@ Request:
 
 Supported v0.1.1 formats:
 
+- `.pdf`
+- `.docx`
+- `.pptx`
+- `.xlsx`
+- `.csv`
 - `.txt`
 - `.md`
-- `.csv`
 - `.json`
 
-PDF, DOCX, web pages, images, OCR, and binary parsing are out of scope for v0.1.1 unless a future patch explicitly adds them.
+Explicitly unsupported:
+
+- Scanned PDF OCR.
+- Image OCR.
+- Audio/video transcription.
+- Webpage crawling or web clipping.
+- ZIP or compressed archives.
+- Email `.eml`.
+- Cloud parsing services.
+
+Extraction strategy:
+
+- PDF: extract text from text-based PDFs only. Do not perform OCR.
+- DOCX: extract body paragraphs and table text.
+- PPTX: extract slide text. Speaker notes are optional and must not block v0.1.1 acceptance.
+- XLSX: extract sheet names and row/column text. Do not perform complex spreadsheet intelligence or formula reasoning.
+- CSV: expand as table text.
+- TXT / MD / JSON: handle as text. JSON may be pretty-printed or preserved as original text.
+
+If extraction fails, return a clear validation error and do not create partial chunks.
 
 Implementation dependency:
 
 - FastAPI file upload requires `python-multipart`.
-- If `POST /knowledge-sources/file` is implemented, `apps/api/requirements.txt` and README local setup instructions must be updated.
-- v0.1.1 still supports both paste and file ingestion, but implementation may complete paste ingestion first.
-- File upload must not block paste ingestion implementation or paste ingestion acceptance.
+- Recommended parser dependencies:
+  - PDF: `pypdf`
+  - DOCX: `python-docx`
+  - PPTX: `python-pptx`
+  - XLSX: `openpyxl`
+- Do not introduce large document parsing frameworks.
+- Do not introduce cloud parsing services.
+- Do not introduce OCR.
+- If parser dependencies are added, update `apps/api/requirements.txt` and README local setup instructions.
 
 Behavior:
 
 1. Store the uploaded file locally.
-2. Extract normalized text for supported formats.
-3. Compute `content_sha256` from normalized extracted text, not file bytes.
-4. Write normalized extracted text to local `extracted.txt`.
-5. Create `knowledge_source` with `source_type = file`.
-6. Create chunks.
-7. Return source and chunk summary, including duplicate warning metadata when applicable.
+2. Validate file extension and size before extraction.
+3. Default max uploaded file size is 50 MB.
+4. Configurable max uploaded file size must not exceed 200 MB.
+5. Extract normalized text for supported formats.
+6. Compute `content_sha256` from normalized extracted text, not file bytes.
+7. Write normalized extracted text to local `extracted.txt`.
+8. Create `knowledge_source` with `source_type = file`.
+9. Create chunks.
+10. Return source and chunk summary, including duplicate warning metadata when applicable.
 
 ### 4.3 List Knowledge Sources
 
@@ -418,48 +457,63 @@ v0.1.1 should keep the Single Focus mobile UI intact.
 
 Knowledge Ingestion is a supporting capability, not a new top-level product mindset.
 
-### 5.1 Node Detail Additions
+The finalized UX reference is `docs/12_KNOWLEDGE_UX_FINAL_DESIGN.md`.
 
-Node Detail should add a secondary Knowledge area:
+### 5.1 Knowledge UX Entry
 
-- Search input: `搜索资料`
-- Result list of matching `knowledge_chunk`
-- Each result shows:
-  - source title
-  - chunk snippet
-  - chunk index or position
-  - action: `挂为证据`
+The primary Knowledge UX entry is the `D Knowledge UX - 外部依据` mobile screen/state.
 
-The action opens an attach modal:
+It includes:
 
-- target type: current Node by default
-- stance:
-  - supports
-  - contradicts
-  - neutral
-- evidence type:
-  - document by default
-  - user may select fact/data/experience if appropriate
-- excerpt preview
-- confirm button
+- Title: `把判断需要的资料放进来`
+- Explanation: `DragonMind 不会替你下结论，只会把资料片段整理成可引用的依据。`
+- Source input copy: `粘贴会议纪要，或上传 PDF、Word、PPT、Excel 等资料。`
+- Buttons:
+  - `选择文件`
+  - `上传`
+- Search label: `查找依据`
+- Search placeholder: `搜索渠道、转化率、会议纪要……`
+- Search results list with source title, source type tag, and excerpt.
+- Target node area: `引用到当前线索`
+- Target node dropdown, defaulting to the current Node where possible.
+- Cite action: `引用`
 
-### 5.2 Knowledge Source Import UI
+### 5.2 Citation Confirmation
 
-Minimal entry points:
+Clicking `引用` must open a confirmation modal before creating Evidence.
 
-1. Node Detail secondary action: `添加资料`
-2. Optional route: `/knowledge`
+Confirmation copy:
 
-For v0.1.1, `/knowledge` may be a simple local library page:
+- Title: `确认引用这条依据？`
+- Status: `结果状态：将把“渠道会议纪要”引用到当前线索。`
+- Body: `确认后，这段资料会用于支持、反驳或补充当前判断。点击取消则不引用。`
+- Actions:
+  - `取消`
+  - `确认引用`
 
-- Paste text tab
-- Upload file tab
-- Source list
-- Source detail with chunks
+Rules:
 
-Do not make `/knowledge` the primary product homepage.
+- `取消` closes the modal and does not create Evidence.
+- `确认引用` creates Evidence for the selected chunk and target.
+- Evidence creation remains explicit. Knowledge chunks must not be converted to Evidence automatically.
 
-### 5.3 Evidence Panel Update
+### 5.3 File Import States
+
+The UX includes lightweight states for:
+
+- File picker: `+ 选择本地文件`
+- Supported type helper: `支持 PDF、Word、PPT、Excel、文本文件`
+- Selected file: `已选择：渠道复盘报告 Q2.pdf`
+- Upload success:
+  - Label: `上传成功`
+  - Body: `资料已导入。DragonMind 已把它整理成可搜索、可引用的片段。`
+  - Button: `知道了`
+- Upload failure:
+  - Label: `上传失败`
+  - Body: `可能是文件过大、格式暂不支持，或内容无法读取。你可以换一个文件，或者先粘贴关键内容。`
+  - Buttons: `取消`, `重新选择`
+
+### 5.4 Evidence Panel Update
 
 Evidence panel should show whether an Evidence item came from a knowledge chunk.
 
@@ -472,6 +526,17 @@ Suggested display:
 - action: open source chunk modal
 
 Do not expose raw `knowledge_chunk_id` in the UI.
+
+### 5.5 Drawer Integration
+
+The side drawer can include a `资料与证据` entry.
+
+Rules:
+
+- Do not turn Knowledge into a complex top-level workspace.
+- Do not make `/knowledge` the primary product homepage.
+- If a standalone route is implemented later, keep it minimal and secondary.
+- Keep the Single Focus homepage unchanged.
 
 ---
 
@@ -516,9 +581,19 @@ Security notes:
 
 Suggested v0.1.1 limits:
 
-- Max pasted text size: 200 KB.
-- Max uploaded file size: 5 MB.
-- Max chunk count per source: 500.
+- Max pasted text size: 1 MB.
+- Default max uploaded file size: 50 MB.
+- Configurable max uploaded file size: up to 200 MB.
+- Max chunk count per source: 2,000.
+- Do not support unlimited paste size, file size, or chunk count.
+
+Rationale:
+
+- Local storage must stay predictable.
+- Large document parsing must not stall or crash the local service.
+- SQLite chunk growth needs an explicit boundary.
+- Error messages should be clear before expensive parsing work begins.
+- Security and performance must remain controllable in a local-first app.
 
 ---
 
@@ -556,21 +631,28 @@ No automatic Evidence is created.
 
 ## 8. Uploaded File Handling
 
-Supported minimum formats:
+Supported v0.1.1 formats:
 
-- `.txt`: read as UTF-8 text.
-- `.md`: read as UTF-8 text.
-- `.csv`: read as UTF-8 text; no table intelligence required.
-- `.json`: pretty-print or store raw text; no schema inference required.
+- `.pdf`: extract text from text-based PDFs only. Do not perform OCR.
+- `.docx`: extract body paragraphs and table text.
+- `.pptx`: extract slide text. Speaker notes are optional and must not block acceptance.
+- `.xlsx`: extract sheet names and row/column text. Do not perform complex table intelligence, formula evaluation, or spreadsheet reasoning.
+- `.csv`: expand rows and columns into table-like text.
+- `.txt`: read as UTF-8 or safely decoded text.
+- `.md`: read as UTF-8 or safely decoded text.
+- `.json`: pretty-print or store raw text. Do not perform schema inference.
 
 Out of scope:
 
-- PDF parsing.
-- DOCX parsing.
-- HTML extraction.
-- Web clipping.
+- Scanned PDF OCR.
 - Image OCR.
 - Audio/video transcription.
+- HTML extraction.
+- Web clipping.
+- ZIP or compressed archives.
+- Email `.eml`.
+- Cloud parsing services.
+- Automatic fact judgment from parsed documents.
 
 Upload flow:
 
@@ -587,9 +669,15 @@ Upload flow:
 Implementation dependency:
 
 - FastAPI file upload requires `python-multipart`.
-- If file upload is implemented, update backend dependency list and README setup instructions.
-- Paste ingestion should be implemented and accepted first.
-- File upload must not block paste ingestion implementation or acceptance.
+- Recommended parser dependencies:
+  - PDF: `pypdf`
+  - DOCX: `python-docx`
+  - PPTX: `python-pptx`
+  - XLSX: `openpyxl`
+- If parser dependencies are added, update backend dependency list and README setup instructions.
+- Do not use large parsing frameworks.
+- Do not use cloud parsing services.
+- Do not use OCR.
 
 If extraction fails:
 
@@ -705,7 +793,14 @@ v0.1.1 must not include:
 - Automatic Evidence creation from every chunk.
 - Web crawler.
 - Browser extension.
-- PDF/DOCX/OCR unless separately scoped.
+- OCR.
+- Scanned PDF OCR.
+- Image OCR.
+- Audio/video transcription.
+- Webpage crawling or web clipping.
+- ZIP or compressed archive ingestion.
+- Email `.eml` ingestion.
+- Cloud parsing services.
 
 ---
 
@@ -725,6 +820,8 @@ v0.1.1 must not include:
 ### Pasted Text
 
 - User can paste text and title.
+- Pasted text up to 1 MB is accepted.
+- Pasted text above the configured limit returns a clear error.
 - System creates one `knowledge_source`.
 - System creates one or more ordered `knowledge_chunk` records.
 - System writes normalized extracted text to local `extracted.txt`.
@@ -732,19 +829,34 @@ v0.1.1 must not include:
 
 ### Uploaded File
 
-- User can upload a supported local text-based file.
+- User can upload supported local executive document files.
+- Text-based PDF upload succeeds.
+- DOCX upload succeeds.
+- PPTX upload succeeds.
+- XLSX upload succeeds.
+- CSV upload succeeds.
+- TXT upload succeeds.
+- MD upload succeeds.
+- JSON upload succeeds.
 - System stores the original file locally.
 - System extracts text.
 - System writes normalized extracted text to local `extracted.txt`.
 - System creates source and chunks.
+- Default upload limit is 50 MB.
+- Configurable upload limit must not exceed 200 MB.
+- Files above the configured size limit return a clear error.
+- Single source chunk count must not exceed 2,000; overflow returns a clear error or controlled validation failure.
+- Scanned PDF / OCR-only input returns a clear unsupported or extraction failure error.
 - Unsupported file types fail with a clear error.
-- File upload depends on `python-multipart`, but file upload does not block paste ingestion acceptance.
+- Extraction failure must not create partial chunks.
+- File upload depends on `python-multipart`.
 
 ### Search / View
 
 - User can search chunks by keyword.
 - Search works without Vector DB.
 - Search works through SQLite `LIKE` without FTS5.
+- Search remains lexical keyword search; no semantic search is required.
 - Node Detail can show matching chunks.
 - User can open a chunk/source preview.
 
@@ -753,6 +865,7 @@ v0.1.1 must not include:
 - User can attach a chunk as Evidence to a Node.
 - User can attach a chunk as Evidence to a Relation.
 - User must choose stance: supports / contradicts / neutral.
+- Evidence creation from Knowledge remains explicit; chunks are not automatically promoted.
 - Created Evidence appears in the existing Evidence panel.
 - Evidence source can navigate back to the chunk/source.
 
@@ -794,11 +907,11 @@ Keep Knowledge passive until the user explicitly attaches a chunk to a Node or R
 
 Risk:
 
-PDF, DOCX, OCR, web extraction, and malformed encodings can consume implementation time.
+Executive document parsing can expand quickly into OCR, layout analysis, table intelligence, malformed file repair, or web extraction.
 
 Mitigation:
 
-Limit v0.1.1 to plain text-oriented formats.
+Support only deterministic text extraction for the listed formats. Do not implement OCR, cloud parsing, semantic analysis, table intelligence, or automatic fact judgment.
 
 ### SQLite Text Size Growth
 
@@ -850,7 +963,12 @@ Add only nullable `knowledge_chunk_id` to the base Evidence response. Do not def
 8. Extend Evidence response with nullable `knowledge_chunk_id`.
 9. Add frontend lookup to show source chunk details when needed.
 10. Add Node Detail Knowledge search / attach UI.
-11. Implement upload API for `.txt`, `.md`, `.csv`, `.json`; add `python-multipart` when this step begins.
+11. Implement upload API and parser adapters for `.pdf`, `.docx`, `.pptx`, `.xlsx`, `.csv`, `.txt`, `.md`, `.json`:
+   - PDF via `pypdf`
+   - DOCX via `python-docx`
+   - PPTX via `python-pptx`
+   - XLSX via `openpyxl`
+   - CSV/TXT/MD/JSON via text-oriented parsing
 12. Add minimal `/knowledge` library page only if needed.
 13. Run regression:
     - v0.1 E2E smoke path
@@ -873,9 +991,11 @@ These decisions are accepted for v0.1.1 implementation:
    - Evidence response adds nullable `knowledge_chunk_id`.
    - Frontend fetches chunk/source detail separately when needed.
 4. File and text limits:
-   - Max pasted text size: 200 KB.
-   - Max uploaded file size: 5 MB.
-   - Max chunk count per source: 500.
+   - Max pasted text size: 1 MB.
+   - Default max uploaded file size: 50 MB.
+   - Configurable max uploaded file size: up to 200 MB.
+   - Max chunk count per source: 2,000.
+   - Unlimited source size and chunk count are not allowed.
 5. Duplicate `content_sha256` behavior:
    - Warn only.
    - Do not block import.
