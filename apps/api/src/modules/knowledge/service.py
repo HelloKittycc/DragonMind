@@ -8,18 +8,19 @@ from typing import Optional
 
 from src.config.settings import API_ROOT
 from src.modules.evidence.service import EvidenceTargetNotFoundError, create_evidence
+from src.modules.knowledge.parsers import ParserError, get_supported_extensions, parse_knowledge_file
 from src.shared.constants import (
     KNOWLEDGE_HARD_SPLIT_OVERLAP_CHARS,
     KNOWLEDGE_MAX_CHUNKS_PER_SOURCE,
     KNOWLEDGE_MAX_UPLOADED_FILE_BYTES,
     KNOWLEDGE_SOFT_MIN_CHARS,
-    KNOWLEDGE_SUPPORTED_EXTENSIONS,
     KNOWLEDGE_TARGET_CHARS,
 )
 from src.shared.time import now_iso
 
 
 KNOWLEDGE_STORAGE_DIR = API_ROOT / "storage" / "knowledge"
+KNOWLEDGE_SUPPORTED_EXTENSIONS = get_supported_extensions()
 
 
 class KnowledgeSourceNotFoundError(Exception):
@@ -186,8 +187,8 @@ def create_text_source(conn: sqlite3.Connection, title: Optional[str], content: 
     timestamp = now_iso()
     source_title = _title_from_text(normalized, title)
     storage_dir = KNOWLEDGE_STORAGE_DIR / source_id
-    _write_extracted_text(storage_dir, normalized)
     chunks = chunk_text(normalized)
+    _write_extracted_text(storage_dir, normalized)
 
     conn.execute(
         """
@@ -223,9 +224,9 @@ def create_file_source(
         raise KnowledgeValidationError("uploaded file exceeds max size")
 
     try:
-        extracted_text = content.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise KnowledgeValidationError("knowledge file must be UTF-8 text") from exc
+        extracted_text = parse_knowledge_file(extension, content, safe_filename)
+    except ParserError as exc:
+        raise KnowledgeValidationError(str(exc)) from exc
 
     normalized = normalize_text(extracted_text)
     if not normalized:
