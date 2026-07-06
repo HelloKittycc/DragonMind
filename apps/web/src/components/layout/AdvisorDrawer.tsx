@@ -11,10 +11,10 @@ type Props = {
 };
 
 const workspaceLinks = [
-  { href: "/workspace?filter=inbox", label: "待处理" },
-  { href: "/workspace?filter=active", label: "进行中" },
-  { href: "/workspace?filter=decision", label: "决策" },
-  { href: "/workspace?filter=all", label: "全部" }
+  { filter: "inbox", label: "待处理" },
+  { filter: "active", label: "进行中" },
+  { filter: "decision", label: "决策" },
+  { filter: "all", label: "全部" }
 ];
 
 export function AdvisorDrawer({ buttonClassName = "advisor-menu-button" }: Props) {
@@ -22,17 +22,39 @@ export function AdvisorDrawer({ buttonClassName = "advisor-menu-button" }: Props
   const [isCaptureOpen, setIsCaptureOpen] = useState(false);
   const [nodes, setNodes] = useState<WorkspaceNodeItem[]>([]);
   const [isLoadingNodes, setIsLoadingNodes] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState("all");
 
   useEffect(() => {
-    if (!isOpen || nodes.length > 0 || isLoadingNodes) {
+    if (!isOpen) {
       return;
     }
+    let isCurrent = true;
     setIsLoadingNodes(true);
-    getWorkspaceNodes("all")
-      .then((items) => setNodes(items.slice(0, 12)))
-      .catch(() => setNodes([]))
-      .finally(() => setIsLoadingNodes(false));
-  }, [isLoadingNodes, isOpen, nodes.length]);
+    getWorkspaceNodes(selectedFilter)
+      .then((items) => {
+        if (isCurrent) {
+          setNodes(items.slice(0, 12));
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setNodes([]);
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsLoadingNodes(false);
+        }
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [isOpen, selectedFilter]);
+
+  function selectWorkspaceFilter(filter: string) {
+    setSelectedFilter(filter);
+    setNodes([]);
+  }
 
   return (
     <>
@@ -55,16 +77,21 @@ export function AdvisorDrawer({ buttonClassName = "advisor-menu-button" }: Props
               </nav>
 
               <nav className="advisor-drawer-section" aria-label="工作区">
-                <div className="advisor-drawer-heading">工作区</div>
+                <div className="advisor-drawer-link primary">工作区</div>
                 {workspaceLinks.map((item) => (
-                  <Link className="advisor-drawer-link nested" href={item.href} key={item.href} onClick={() => setIsOpen(false)}>
+                  <button
+                    className={item.filter === selectedFilter ? "advisor-drawer-link nested active" : "advisor-drawer-link nested"}
+                    key={item.filter}
+                    onClick={() => selectWorkspaceFilter(item.filter)}
+                    type="button"
+                  >
                     {item.label}
-                  </Link>
+                  </button>
                 ))}
               </nav>
 
               <nav className="advisor-drawer-section" aria-label="最近线索">
-                <div className="advisor-drawer-heading">线索</div>
+                <div className="advisor-drawer-link primary">线索</div>
                 {isLoadingNodes ? <p className="advisor-drawer-muted">正在读取线索</p> : null}
                 {!isLoadingNodes && nodes.length === 0 ? <p className="advisor-drawer-muted">还没有线索</p> : null}
                 {nodes.map((item) => (

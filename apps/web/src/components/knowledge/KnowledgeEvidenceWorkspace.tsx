@@ -11,18 +11,13 @@ import {
 import { formatFullDate } from "@/api-client/display";
 import type { KnowledgeChunkSearchResult, WorkspaceNodeItem } from "@/api-client/types";
 import { AdvisorDrawer } from "@/components/layout/AdvisorDrawer";
+import { BottomCaptureBar } from "@/components/single-focus/BottomCaptureBar";
 
 type Props = {
   nodes: WorkspaceNodeItem[];
 };
 
 type Stance = "supports" | "contradicts" | "neutral";
-
-const stanceOptions: Array<{ value: Stance; label: string }> = [
-  { value: "supports", label: "支持" },
-  { value: "contradicts", label: "反驳" },
-  { value: "neutral", label: "中性记录" }
-];
 
 const fileAccept = ".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,.json";
 
@@ -73,9 +68,18 @@ export function KnowledgeEvidenceWorkspace({ nodes }: Props) {
   const [searchError, setSearchError] = useState("");
   const [selectedChunk, setSelectedChunk] = useState<KnowledgeChunkSearchResult | null>(null);
   const [targetNodeId, setTargetNodeId] = useState(nodes[0]?.node.id ?? "");
-  const [stance, setStance] = useState<Stance>("neutral");
+  const [stance] = useState<Stance>("neutral");
   const [isCiting, setIsCiting] = useState(false);
   const [citeError, setCiteError] = useState("");
+  const [citationSuccessTitle, setCitationSuccessTitle] = useState("");
+
+  async function onSourceImport(event: FormEvent<HTMLFormElement>) {
+    if (selectedFile) {
+      await onFileUpload(event);
+      return;
+    }
+    await onPasteImport(event);
+  }
 
   async function onPasteImport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -159,6 +163,7 @@ export function KnowledgeEvidenceWorkspace({ nodes }: Props) {
         evidence_type: "document",
         stance
       });
+      setCitationSuccessTitle(selectedChunk.source_title);
       setSelectedChunk(null);
       router.refresh();
     } catch {
@@ -177,43 +182,12 @@ export function KnowledgeEvidenceWorkspace({ nodes }: Props) {
           <time>{formatFullDate()}</time>
         </header>
 
-        <section className="knowledge-hero-card">
+        <section className="knowledge-d-primary-card">
           <p className="sf-kicker-static">资料与证据</p>
           <h1>把判断需要的资料放进来</h1>
-          <p>DragonMind 不会替你下结论，只会把资料片段整理成可引用的依据。</p>
-        </section>
+          <p className="knowledge-d-intro">DragonMind 不会替你下结论，只会把资料片段整理成可引用的依据。</p>
 
-        <section className="knowledge-d-card">
-          <div className="knowledge-d-section-title">
-            <strong>补充资料</strong>
-            <span>粘贴会议纪要，或上传 PDF、Word、PPT、Excel 等资料。</span>
-          </div>
-
-          <form className="knowledge-d-paste" onSubmit={onPasteImport}>
-            <input
-              className="knowledge-d-input"
-              onChange={(event) => setPasteTitle(event.target.value)}
-              placeholder="资料标题，例如：渠道会议纪要"
-              value={pasteTitle}
-            />
-            <textarea
-              className="knowledge-d-textarea"
-              onChange={(event) => setPasteContent(event.target.value)}
-              placeholder="粘贴会议纪要、复盘材料或背景资料……"
-              value={pasteContent}
-            />
-            <button className="knowledge-d-primary" disabled={isImporting || !pasteContent.trim()} type="submit">
-              {isImporting ? "导入中" : "导入资料"}
-            </button>
-          </form>
-
-          <form className="knowledge-d-file" onSubmit={onFileUpload}>
-            <input
-              className="knowledge-d-input"
-              onChange={(event) => setFileTitle(event.target.value)}
-              placeholder="文件标题，可选"
-              value={fileTitle}
-            />
+          <form className="knowledge-d-source-card" onSubmit={onSourceImport}>
             <input
               accept={fileAccept}
               hidden
@@ -221,32 +195,28 @@ export function KnowledgeEvidenceWorkspace({ nodes }: Props) {
               ref={fileInputRef}
               type="file"
             />
+            <textarea
+              className={selectedFile ? "knowledge-d-source-input selected" : "knowledge-d-source-input"}
+              onChange={(event) => setPasteContent(event.target.value)}
+              placeholder="粘贴会议纪要，或上传 PDF、Word、PPT、Excel 等资料。"
+              readOnly={Boolean(selectedFile)}
+              value={selectedFile ? `已选择：${selectedFile.name}` : pasteContent}
+            />
             {!selectedFile ? (
               <button className="knowledge-d-file-button" onClick={() => fileInputRef.current?.click()} type="button">
-                + 选择本地文件
+                选择文件
               </button>
             ) : (
-              <div className="knowledge-d-selected-file">
-                <span>已选择：{selectedFile.name}</span>
-                <div>
-                  <button className="knowledge-d-ghost" onClick={() => fileInputRef.current?.click()} type="button">
-                    重新选择
-                  </button>
-                  <button className="knowledge-d-primary" disabled={isImporting} type="submit">
-                    {isImporting ? "上传中" : "上传资料"}
-                  </button>
-                </div>
-              </div>
+              <button className="knowledge-d-file-button" onClick={() => fileInputRef.current?.click()} type="button">
+                重新选择
+              </button>
             )}
-            <p className="knowledge-d-helper">支持 PDF、Word、PPT、Excel、文本文件。</p>
+            <button className="knowledge-d-primary compact" disabled={isImporting || (!selectedFile && !pasteContent.trim())} type="submit">
+              {isImporting ? "上传中" : "上传"}
+            </button>
           </form>
-        </section>
 
-        <section className="knowledge-d-card">
-          <div className="knowledge-d-section-title">
-            <strong>查找依据</strong>
-            <span>搜索后选择片段，再引用到某条线索。</span>
-          </div>
+          <div className="knowledge-d-search-label">查找依据</div>
           <form className="knowledge-d-search" onSubmit={onSearch}>
             <input
               className="knowledge-d-input"
@@ -259,32 +229,15 @@ export function KnowledgeEvidenceWorkspace({ nodes }: Props) {
               {isSearching ? "搜索中" : "搜索"}
             </button>
           </form>
-          <label className="knowledge-d-target-label" htmlFor="knowledge-target-node">
-            引用到当前线索
-          </label>
-          <select
-            className="knowledge-d-input"
-            id="knowledge-target-node"
-            onChange={(event) => setTargetNodeId(event.target.value)}
-            value={targetNodeId}
-          >
-            {nodes.length === 0 ? <option value="">暂无可引用线索</option> : null}
-            {nodes.map((item) => (
-              <option key={item.node.id} value={item.node.id}>
-                {item.node.title}
-              </option>
-            ))}
-          </select>
 
           {searchError ? <p className="sf-error">{searchError}</p> : null}
-          {!query.trim() ? <p className="knowledge-d-helper">输入关键词搜索已导入资料。</p> : null}
-          {query.trim() && hasSearched && !isSearching && results.length === 0 && !searchError ? (
-            <p className="knowledge-d-helper">没有找到匹配资料。你可以先导入一段资料。</p>
-          ) : null}
-
-          {results.length > 0 ? (
-            <div className="knowledge-d-results">
-              {results.map((chunk) => (
+          <div className="knowledge-d-results">
+            {!query.trim() ? <p className="knowledge-d-helper">输入关键词搜索已导入资料。</p> : null}
+            {query.trim() && hasSearched && !isSearching && results.length === 0 && !searchError ? (
+              <p className="knowledge-d-helper">没有找到匹配资料。你可以先导入一段资料。</p>
+            ) : null}
+            {results.length > 0
+              ? results.map((chunk) => (
                 <article className="knowledge-d-result" key={chunk.id}>
                   <div>
                     <span>{sourceTag(chunk)}</span>
@@ -296,10 +249,30 @@ export function KnowledgeEvidenceWorkspace({ nodes }: Props) {
                     引用
                   </button>
                 </article>
+              ))
+              : null}
+          </div>
+
+          <div className="knowledge-d-target-card">
+            <label className="knowledge-d-target-label" htmlFor="knowledge-target-node">
+              引用到当前线索
+            </label>
+            <select
+              className="knowledge-d-target-select"
+              id="knowledge-target-node"
+              onChange={(event) => setTargetNodeId(event.target.value)}
+              value={targetNodeId}
+            >
+              {nodes.length === 0 ? <option value="">暂无可引用线索</option> : null}
+              {nodes.map((item) => (
+                <option key={item.node.id} value={item.node.id}>
+                  {item.node.title}
+                </option>
               ))}
-            </div>
-          ) : null}
+            </select>
+          </div>
         </section>
+        <BottomCaptureBar />
       </section>
 
       {statusModal ? (
@@ -345,25 +318,10 @@ export function KnowledgeEvidenceWorkspace({ nodes }: Props) {
             <div>
               <p className="section-kicker">引用依据</p>
               <h2>确认引用这条依据？</h2>
-              <strong className="knowledge-modal-source">{selectedChunk.source_title}</strong>
+              <strong className="knowledge-modal-source">结果状态：将把“{selectedChunk.source_title}”引用到当前线索。</strong>
               <p className="knowledge-excerpt">{selectedChunk.snippet || selectedChunk.content}</p>
-              <p className="muted">引用后，这段资料会出现在所选线索的“证据”中。它不会自动变成结论，只会作为判断依据被保留。</p>
+              <p className="muted">确认后，这段资料会用于支持、反驳或补充当前判断。点击取消则不引用。</p>
             </div>
-            <label className="field-label" htmlFor="knowledge-page-stance">
-              这段依据的作用
-            </label>
-            <select
-              className="knowledge-search-input"
-              id="knowledge-page-stance"
-              onChange={(event) => setStance(event.target.value as Stance)}
-              value={stance}
-            >
-              {stanceOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
             {citeError ? <p className="error">{citeError}</p> : null}
             <div className="modal-actions">
               <button className="button-ghost" disabled={isCiting} onClick={() => setSelectedChunk(null)} type="button">
@@ -371,6 +329,23 @@ export function KnowledgeEvidenceWorkspace({ nodes }: Props) {
               </button>
               <button className="button button-secondary" disabled={isCiting || !targetNodeId} onClick={onConfirmCitation} type="button">
                 {isCiting ? "引用中" : "确认引用"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {citationSuccessTitle ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="引用成功">
+          <div className="knowledge-modal panel stack">
+            <div>
+              <p className="section-kicker">引用成功</p>
+              <h2>已引用到当前线索</h2>
+              <p className="muted">“{citationSuccessTitle}”已经出现在所选线索的证据中。它不会自动变成结论，只会作为判断依据被保留。</p>
+            </div>
+            <div className="modal-actions">
+              <button className="button button-secondary" onClick={() => setCitationSuccessTitle("")} type="button">
+                知道了
               </button>
             </div>
           </div>
