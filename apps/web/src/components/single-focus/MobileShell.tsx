@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AdvisorDrawer } from "@/components/layout/AdvisorDrawer";
 import { BottomCaptureBar } from "./BottomCaptureBar";
 
 type Props = {
@@ -11,7 +12,7 @@ export function MobileShell({ children, dateText }: Props) {
     <main className="sf-page">
       <section className="sf-phone">
         <header className="sf-header">
-          <div className="sf-brand-mark">DM</div>
+          <AdvisorDrawer buttonClassName="sf-brand-mark sf-menu-button" />
           <strong>DragonMind</strong>
           <time>{dateText}</time>
         </header>

@@ -46,7 +46,7 @@ export default async function NodeDetailPage({ params }: Props) {
             <StageProgressionForm nodeId={detail.node.id} nodeType={detail.node.node_type} />
             <TaskPanel tasks={detail.tasks} />
             <RelationPanel nodeId={detail.node.id} relations={detail.relations} />
-            <KnowledgeSearchPanel nodeId={detail.node.id} />
+            <KnowledgeSearchPanel nodeId={detail.node.id} evidence={detail.evidence} />
             <EvidencePanel evidence={detail.evidence} />
             <section className="panel danger-zone">
               <div>

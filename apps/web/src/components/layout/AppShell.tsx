@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AdvisorDrawer } from "./AdvisorDrawer";
 
 type Props = {
   children: ReactNode;
@@ -10,13 +11,14 @@ export function AppShell({ children }: Props) {
     <>
       <div className="app-shell">
         <nav className="top-nav" aria-label="主导航">
-          <Link className="top-brand" href="/">
-            <span className="brand-mark">DM</span>
+          <div className="top-brand">
+            <AdvisorDrawer buttonClassName="brand-mark advisor-menu-button" />
             <span>DragonMind</span>
-          </Link>
+          </div>
           <div className="top-links">
             <Link href="/">观察日报</Link>
             <Link href="/workspace">工作区</Link>
+            <Link href="/knowledge">资料与证据</Link>
           </div>
         </nav>
         {children}
@@ -24,7 +26,7 @@ export function AppShell({ children }: Props) {
       <nav className="mobile-bottom-nav" aria-label="移动端导航">
         <Link href="/">观察</Link>
         <Link href="/workspace">工作区</Link>
-        <Link href="/#quick-capture">记录</Link>
+        <Link href="/knowledge">资料</Link>
       </nav>
     </>
   );

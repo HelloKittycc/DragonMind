@@ -24,7 +24,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Request failed: ${response.status}`);
+    let detailMessage = "";
+    try {
+      detailMessage = String((JSON.parse(text) as { detail?: unknown }).detail ?? "");
+    } catch {
+      detailMessage = "";
+    }
+    throw new Error(detailMessage || text || `Request failed: ${response.status}`);
   }
   return response.json() as Promise<T>;
 }
