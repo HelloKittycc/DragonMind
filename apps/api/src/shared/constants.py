@@ -51,3 +51,30 @@ KNOWLEDGE_SOFT_MIN_CHARS = 300
 KNOWLEDGE_HARD_SPLIT_OVERLAP_CHARS = 100
 
 EXTRACTION_VERSION = "v0.1.1-executive-document"
+
+TOPIC_STATUSES = {"active", "paused", "archived"}
+TOPIC_REVIEW_CADENCES = {"monthly", "quarterly"}
+
+REVIEW_SESSION_STATUSES = {"draft", "active", "completed"}
+REVIEW_SECTION_TYPES = {
+    "current_goal",
+    "actual_result",
+    "key_deviation",
+    "anomaly_signal",
+    "core_question",
+    "next_plan",
+    "open_issue",
+}
+REVIEW_GUIDING_QUESTION_STATUSES = {"suggested", "dismissed", "converted"}
+REVIEW_LINK_TARGET_TYPES = {"node", "knowledge_source"}
+REVIEW_SESSION_INPUT_SOURCES = {"user", "agent_suggestion"}
+
+DEFAULT_REVIEW_SECTIONS = [
+    ("current_goal", "本期目标"),
+    ("actual_result", "实际结果"),
+    ("key_deviation", "关键偏差"),
+    ("anomaly_signal", "异常信号"),
+    ("core_question", "核心问题"),
+    ("next_plan", "下期计划"),
+    ("open_issue", "遗留问题"),
+]

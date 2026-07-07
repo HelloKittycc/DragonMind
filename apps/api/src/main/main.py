@@ -6,6 +6,7 @@ from src.modules.discovery.router import router as discovery_router
 from src.modules.evidence.router import router as evidence_router
 from src.modules.knowledge.router import router as knowledge_router
 from src.modules.relations.router import router as relations_router
+from src.modules.review_context.router import router as review_context_router
 from src.modules.tasks.router import router as tasks_router
 from src.db.database import run_migrations
 
@@ -36,4 +37,5 @@ app.include_router(discovery_router)
 app.include_router(evidence_router)
 app.include_router(knowledge_router)
 app.include_router(relations_router)
+app.include_router(review_context_router)
 app.include_router(tasks_router)
