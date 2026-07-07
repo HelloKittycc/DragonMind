@@ -4,6 +4,9 @@ from datetime import date
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.shared.constants import (
+    REVIEW_GUIDING_QUESTION_STATUSES,
+    REVIEW_LINK_TARGET_TYPES,
+    REVIEW_SESSION_INPUT_SOURCES,
     REVIEW_SESSION_STATUSES,
     TOPIC_REVIEW_CADENCES,
     TOPIC_STATUSES,
@@ -182,6 +185,76 @@ class UpdateReviewSectionRequest(BaseModel):
         return value.strip() or None
 
 
+class CreateTopicLinkRequest(BaseModel):
+    target_type: str
+    target_id: str = Field(min_length=1)
+
+    @field_validator("target_type")
+    @classmethod
+    def validate_target_type(cls, value: str) -> str:
+        if value not in REVIEW_LINK_TARGET_TYPES:
+            raise ValueError("invalid topic link target type")
+        return value
+
+    @field_validator("target_id")
+    @classmethod
+    def validate_target_id(cls, value: str) -> str:
+        return non_empty_text(value, "topic link target")
+
+
+class CreateReviewSessionInputRequest(BaseModel):
+    target_type: str
+    target_id: str = Field(min_length=1)
+    source: str = "user"
+
+    @field_validator("target_type")
+    @classmethod
+    def validate_target_type(cls, value: str) -> str:
+        if value not in REVIEW_LINK_TARGET_TYPES:
+            raise ValueError("invalid review session input target type")
+        return value
+
+    @field_validator("target_id")
+    @classmethod
+    def validate_target_id(cls, value: str) -> str:
+        return non_empty_text(value, "review session input target")
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, value: str) -> str:
+        if value not in REVIEW_SESSION_INPUT_SOURCES:
+            raise ValueError("invalid review session input source")
+        return value
+
+
+class UpdateGuidingQuestionStatusRequest(BaseModel):
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str) -> str:
+        if value not in REVIEW_GUIDING_QUESTION_STATUSES:
+            raise ValueError("invalid guiding question status")
+        return value
+
+
+class CreateReviewSessionNodeRequest(BaseModel):
+    question: str = Field(min_length=1)
+    title: Optional[str] = None
+
+    @field_validator("question")
+    @classmethod
+    def validate_question(cls, value: str) -> str:
+        return non_empty_text(value, "review question")
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        return non_empty_text(value, "review question title")
+
+
 class TopicRecord(BaseModel):
     id: str
     title: str
@@ -219,3 +292,45 @@ class ReviewSessionRecord(BaseModel):
 class ReviewSessionDetailResponse(BaseModel):
     session: ReviewSessionRecord
     sections: list[ReviewSectionRecord]
+
+
+class TopicLinkRecord(BaseModel):
+    id: str
+    topic_id: str
+    target_type: str
+    target_id: str
+    created_at: str
+
+
+class ReviewSessionInputRecord(BaseModel):
+    id: str
+    session_id: str
+    target_type: str
+    target_id: str
+    source: str
+    confirmed_at: str
+    created_at: str
+
+
+class ReviewGuidingQuestionRecord(BaseModel):
+    id: str
+    session_id: str
+    question: str
+    rationale: str
+    status: str
+    created_node_id: Optional[str]
+    created_at: str
+    updated_at: str
+
+
+class ConvertedGuidingQuestionResponse(BaseModel):
+    guiding_question: ReviewGuidingQuestionRecord
+    node_id: str
+    review_session_input: ReviewSessionInputRecord
+    topic_link: TopicLinkRecord
+
+
+class ReviewSessionNodeResponse(BaseModel):
+    node_id: str
+    review_session_input: ReviewSessionInputRecord
+    topic_link: TopicLinkRecord
