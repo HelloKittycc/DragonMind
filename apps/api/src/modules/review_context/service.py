@@ -142,19 +142,33 @@ def create_review_session(
     status: str,
 ) -> dict:
     _get_topic(conn, primary_topic_id)
+    duplicate = conn.execute(
+        """
+        SELECT id FROM review_session
+        WHERE primary_topic_id = ? AND period_start = ? AND period_end = ?
+        LIMIT 1
+        """,
+        (primary_topic_id, period_start, period_end),
+    ).fetchone()
+    if duplicate is not None:
+        raise ReviewValidationError("duplicate review session period")
+
     timestamp = now_iso()
     session_id = _new_id()
     completed_at = timestamp if status == "completed" else None
-    conn.execute(
-        """
-        INSERT INTO review_session (
-          id, primary_topic_id, title, period_start, period_end, status,
-          created_at, updated_at, completed_at
+    try:
+        conn.execute(
+            """
+            INSERT INTO review_session (
+              id, primary_topic_id, title, period_start, period_end, status,
+              created_at, updated_at, completed_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (session_id, primary_topic_id, title, period_start, period_end, status, timestamp, timestamp, completed_at),
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (session_id, primary_topic_id, title, period_start, period_end, status, timestamp, timestamp, completed_at),
-    )
+    except sqlite3.IntegrityError as exc:
+        raise ReviewValidationError("duplicate review session period") from exc
     _create_default_sections(conn, session_id, timestamp)
     return get_review_session_detail(conn, session_id)
 

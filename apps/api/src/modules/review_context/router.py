@@ -176,6 +176,9 @@ def post_review_session(payload: CreateReviewSessionRequest) -> dict:
             )
         except TopicNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ReviewValidationError as exc:
+            status_code = 409 if "duplicate" in str(exc) else 400
+            raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
 
 @router.get("/review-sessions/{session_id}", response_model=ReviewSessionDetailResponse)
