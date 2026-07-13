@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from src.db.database import connection_scope
 from src.modules.review_context.schemas import (
+    ConvertGuidingQuestionRequest,
     ConvertedGuidingQuestionResponse,
     CreateReviewSessionInputRequest,
     CreateReviewSessionNodeRequest,
@@ -12,6 +13,7 @@ from src.modules.review_context.schemas import (
     ReviewSectionRecord,
     ReviewSessionDetailResponse,
     ReviewSessionInputRecord,
+    ReviewSessionRecord,
     ReviewSessionNodeResponse,
     TopicLinkRecord,
     TopicRecord,
@@ -36,11 +38,13 @@ from src.modules.review_context.service import (
     create_topic_link,
     delete_review_session_input,
     delete_topic_link,
+    ensure_current_monthly_review_session,
     generate_guiding_questions,
     get_review_session_detail,
     get_topic,
     list_guiding_questions,
     list_review_session_inputs,
+    list_review_sessions_for_topic,
     list_topics,
     list_topic_links,
     list_topic_links_for_target,
@@ -135,6 +139,26 @@ def delete_topic_link_route(link_id: str) -> None:
         try:
             delete_topic_link(conn, link_id)
         except TopicLinkNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/topics/{topic_id}/review-sessions/ensure-current", response_model=ReviewSessionDetailResponse)
+def post_ensure_current_review_session(topic_id: str) -> dict:
+    with connection_scope() as conn:
+        try:
+            return ensure_current_monthly_review_session(conn, topic_id)
+        except TopicNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ReviewValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/topics/{topic_id}/review-sessions", response_model=list[ReviewSessionRecord])
+def get_review_sessions_for_topic(topic_id: str) -> list[dict]:
+    with connection_scope() as conn:
+        try:
+            return list_review_sessions_for_topic(conn, topic_id)
+        except TopicNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
@@ -262,10 +286,13 @@ def patch_guiding_question_status(question_id: str, payload: UpdateGuidingQuesti
     "/review-guiding-questions/{question_id}/convert-to-node",
     response_model=ConvertedGuidingQuestionResponse,
 )
-def post_convert_guiding_question(question_id: str) -> dict:
+def post_convert_guiding_question(
+    question_id: str,
+    payload: ConvertGuidingQuestionRequest | None = None,
+) -> dict:
     with connection_scope() as conn:
         try:
-            return convert_guiding_question_to_node(conn, question_id)
+            return convert_guiding_question_to_node(conn, question_id, payload.initial_note if payload else None)
         except ReviewGuidingQuestionNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ReviewValidationError as exc:

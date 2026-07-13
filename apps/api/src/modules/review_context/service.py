@@ -1,5 +1,7 @@
 import sqlite3
 import uuid
+from calendar import monthrange
+from datetime import date
 from typing import Optional
 
 from src.modules.nodes.service import extract_interpretation
@@ -155,6 +157,43 @@ def create_review_session(
     )
     _create_default_sections(conn, session_id, timestamp)
     return get_review_session_detail(conn, session_id)
+
+
+def ensure_current_monthly_review_session(conn: sqlite3.Connection, topic_id: str) -> dict:
+    topic = _get_topic(conn, topic_id)
+    if topic["status"] != "active" or topic["review_cadence"] != "monthly":
+        raise ReviewValidationError("only active monthly topics can ensure current review session")
+
+    today = date.today()
+    period_start = today.replace(day=1).isoformat()
+    period_end = today.replace(day=monthrange(today.year, today.month)[1]).isoformat()
+    existing = conn.execute(
+        """
+        SELECT id FROM review_session
+        WHERE primary_topic_id = ? AND period_start = ? AND period_end = ?
+        LIMIT 1
+        """,
+        (topic_id, period_start, period_end),
+    ).fetchone()
+    if existing is not None:
+        return get_review_session_detail(conn, existing["id"])
+
+    title_subject = topic["title"].replace("月度", "").strip() or topic["title"]
+    title = f"{today.year} 年 {today.month} 月{title_subject}"
+    return create_review_session(conn, topic_id, title, period_start, period_end, "active")
+
+
+def list_review_sessions_for_topic(conn: sqlite3.Connection, topic_id: str) -> list[dict]:
+    _get_topic(conn, topic_id)
+    rows = conn.execute(
+        """
+        SELECT * FROM review_session
+        WHERE primary_topic_id = ?
+        ORDER BY period_start DESC, created_at DESC
+        """,
+        (topic_id,),
+    ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def _create_default_sections(conn: sqlite3.Connection, session_id: str, timestamp: str) -> None:
@@ -572,7 +611,11 @@ def update_guiding_question_status(conn: sqlite3.Connection, question_id: str, s
     return dict(_get_guiding_question_row(conn, question_id))
 
 
-def convert_guiding_question_to_node(conn: sqlite3.Connection, question_id: str) -> dict:
+def convert_guiding_question_to_node(
+    conn: sqlite3.Connection,
+    question_id: str,
+    initial_note: Optional[str] = None,
+) -> dict:
     question = _get_guiding_question_row(conn, question_id)
     session = _get_session_row(conn, question["session_id"])
     _ensure_session_editable(session)
@@ -580,6 +623,8 @@ def convert_guiding_question_to_node(conn: sqlite3.Connection, question_id: str)
         raise ReviewValidationError("only suggested guiding questions can be converted")
 
     node_id = _create_reasoning_node(conn, question["question"], question["question"])
+    if initial_note:
+        _append_reasoning_note(conn, node_id, initial_note)
     review_input = create_review_session_input(conn, question["session_id"], "node", node_id, "agent_suggestion")
     topic_link = create_topic_link(conn, session["primary_topic_id"], "node", node_id)
     timestamp = now_iso()
@@ -656,3 +701,13 @@ def _create_reasoning_node(conn: sqlite3.Connection, title: str, content: str) -
         (interpretation_id, node_id, entities_json, keywords_json, EXTRACTION_VERSION, timestamp),
     )
     return node_id
+
+
+def _append_reasoning_note(conn: sqlite3.Connection, node_id: str, content: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO node_message (id, node_id, role, content, message_type, created_at)
+        VALUES (?, ?, 'user', ?, 'reply', ?)
+        """,
+        (_new_id(), node_id, content, now_iso()),
+    )

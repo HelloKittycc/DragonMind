@@ -1,13 +1,22 @@
 import type {
   CreateKnowledgeSourceResponse,
+  ConvertedGuidingQuestionResponse,
   DiscoveryFeedItem,
   EvidenceRecord,
   KnowledgeChunkSearchResult,
+  KnowledgeSourceRecord,
   MessageRecord,
   NodeDetail,
   NodeRecord,
   RelationRecord,
+  ReviewGuidingQuestionRecord,
+  ReviewSectionRecord,
+  ReviewSessionDetail,
+  ReviewSessionInputRecord,
+  ReviewSessionNodeResponse,
+  ReviewSessionRecord,
   TaskRecord,
+  TopicRecord,
   WorkspaceNodeItem
 } from "./types";
 
@@ -31,6 +40,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       detailMessage = "";
     }
     throw new Error(detailMessage || text || `Request failed: ${response.status}`);
+  }
+  if (response.status === 204) {
+    return undefined as T;
   }
   return response.json() as Promise<T>;
 }
@@ -197,6 +209,120 @@ export function createEvidenceFromKnowledgeChunk(
   }
 ): Promise<EvidenceRecord> {
   return request<EvidenceRecord>(`/knowledge-chunks/${chunkId}/evidence`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function getKnowledgeSources(): Promise<KnowledgeSourceRecord[]> {
+  return request<KnowledgeSourceRecord[]>("/knowledge-sources", {
+    cache: "no-store"
+  });
+}
+
+export function getKnowledgeSource(sourceId: string): Promise<{ source: KnowledgeSourceRecord; chunks: unknown[] }> {
+  return request<{ source: KnowledgeSourceRecord; chunks: unknown[] }>(`/knowledge-sources/${sourceId}`, {
+    cache: "no-store"
+  });
+}
+
+export function getTopics(): Promise<TopicRecord[]> {
+  return request<TopicRecord[]>("/topics", {
+    cache: "no-store"
+  });
+}
+
+export function getTopic(topicId: string): Promise<TopicRecord> {
+  return request<TopicRecord>(`/topics/${topicId}`, {
+    cache: "no-store"
+  });
+}
+
+export function ensureCurrentReviewSession(topicId: string): Promise<ReviewSessionDetail> {
+  return request<ReviewSessionDetail>(`/topics/${topicId}/review-sessions/ensure-current`, {
+    method: "POST"
+  });
+}
+
+export function getReviewSessionsForTopic(topicId: string): Promise<ReviewSessionRecord[]> {
+  return request<ReviewSessionRecord[]>(`/topics/${topicId}/review-sessions`, {
+    cache: "no-store"
+  });
+}
+
+export function getReviewSession(sessionId: string): Promise<ReviewSessionDetail> {
+  return request<ReviewSessionDetail>(`/review-sessions/${sessionId}`, {
+    cache: "no-store"
+  });
+}
+
+export function updateReviewSection(sectionId: string, content: string | null): Promise<ReviewSectionRecord> {
+  return request<ReviewSectionRecord>(`/review-sections/${sectionId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ content })
+  });
+}
+
+export function getReviewSessionInputs(sessionId: string): Promise<ReviewSessionInputRecord[]> {
+  return request<ReviewSessionInputRecord[]>(`/review-sessions/${sessionId}/inputs`, {
+    cache: "no-store"
+  });
+}
+
+export function addReviewSessionInput(
+  sessionId: string,
+  payload: {
+    target_type: "node" | "knowledge_source";
+    target_id: string;
+    source?: "user" | "agent_suggestion";
+  }
+): Promise<ReviewSessionInputRecord> {
+  return request<ReviewSessionInputRecord>(`/review-sessions/${sessionId}/inputs`, {
+    method: "POST",
+    body: JSON.stringify({ ...payload, source: payload.source ?? "user" })
+  });
+}
+
+export function removeReviewSessionInput(sessionId: string, inputId: string): Promise<void> {
+  return request<void>(`/review-sessions/${sessionId}/inputs/${inputId}`, {
+    method: "DELETE"
+  });
+}
+
+export function generateReviewGuidingQuestions(sessionId: string): Promise<ReviewGuidingQuestionRecord[]> {
+  return request<ReviewGuidingQuestionRecord[]>(`/review-sessions/${sessionId}/guiding-questions/generate`, {
+    method: "POST"
+  });
+}
+
+export function getReviewGuidingQuestions(sessionId: string): Promise<ReviewGuidingQuestionRecord[]> {
+  return request<ReviewGuidingQuestionRecord[]>(`/review-sessions/${sessionId}/guiding-questions`, {
+    cache: "no-store"
+  });
+}
+
+export function dismissReviewGuidingQuestion(questionId: string): Promise<ReviewGuidingQuestionRecord> {
+  return request<ReviewGuidingQuestionRecord>(`/review-guiding-questions/${questionId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "dismissed" })
+  });
+}
+
+export function convertReviewGuidingQuestion(
+  questionId: string,
+  initialNote?: string
+): Promise<ConvertedGuidingQuestionResponse> {
+  return request<ConvertedGuidingQuestionResponse>(`/review-guiding-questions/${questionId}/convert-to-node`, {
+    method: "POST",
+    body: JSON.stringify({ initial_note: initialNote?.trim() || undefined })
+  });
+}
+
+export function createReviewSessionNode(
+  sessionId: string,
+  payload: { question: string; title?: string }
+): Promise<ReviewSessionNodeResponse> {
+  return request<ReviewSessionNodeResponse>(`/review-sessions/${sessionId}/nodes`, {
     method: "POST",
     body: JSON.stringify(payload)
   });

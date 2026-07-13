@@ -134,3 +134,84 @@ export type DiscoveryFeedItem = {
   created_at: string;
   runtime_importance: number;
 };
+
+export type TopicRecord = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  review_cadence: string | null;
+  next_review_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ReviewSectionRecord = {
+  id: string;
+  session_id: string;
+  section_type: string;
+  title: string;
+  content: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ReviewSessionRecord = {
+  id: string;
+  primary_topic_id: string;
+  title: string;
+  period_start: string;
+  period_end: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+};
+
+export type ReviewSessionDetail = {
+  session: ReviewSessionRecord;
+  sections: ReviewSectionRecord[];
+};
+
+export type TopicLinkRecord = {
+  id: string;
+  topic_id: string;
+  target_type: "node" | "knowledge_source";
+  target_id: string;
+  created_at: string;
+};
+
+export type ReviewSessionInputRecord = {
+  id: string;
+  session_id: string;
+  target_type: "node" | "knowledge_source";
+  target_id: string;
+  source: "user" | "agent_suggestion";
+  confirmed_at: string;
+  created_at: string;
+};
+
+export type ReviewGuidingQuestionRecord = {
+  id: string;
+  session_id: string;
+  question: string;
+  rationale: string;
+  status: "suggested" | "dismissed" | "converted";
+  created_node_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ConvertedGuidingQuestionResponse = {
+  guiding_question: ReviewGuidingQuestionRecord;
+  node_id: string;
+  review_session_input: ReviewSessionInputRecord;
+  topic_link: TopicLinkRecord;
+};
+
+export type ReviewSessionNodeResponse = {
+  node_id: string;
+  review_session_input: ReviewSessionInputRecord;
+  topic_link: TopicLinkRecord;
+};

@@ -255,6 +255,15 @@ class CreateReviewSessionNodeRequest(BaseModel):
         return non_empty_text(value, "review question title")
 
 
+class ConvertGuidingQuestionRequest(BaseModel):
+    initial_note: Optional[str] = None
+
+    @field_validator("initial_note")
+    @classmethod
+    def validate_initial_note(cls, value: Optional[str]) -> Optional[str]:
+        return _normalize_optional_text(value)
+
+
 class TopicRecord(BaseModel):
     id: str
     title: str

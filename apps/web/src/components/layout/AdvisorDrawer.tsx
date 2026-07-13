@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getWorkspaceNodes } from "@/api-client/client";
-import type { WorkspaceNodeItem } from "@/api-client/types";
+import { getTopics, getWorkspaceNodes } from "@/api-client/client";
+import type { TopicRecord, WorkspaceNodeItem } from "@/api-client/types";
 import { SparkCaptureModal } from "@/components/single-focus/SparkCaptureModal";
 
 type Props = {
@@ -20,9 +20,10 @@ const workspaceLinks = [
 export function AdvisorDrawer({ buttonClassName = "advisor-menu-button" }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [isCaptureOpen, setIsCaptureOpen] = useState(false);
-  const [nodes, setNodes] = useState<WorkspaceNodeItem[]>([]);
+  const [nodesByFilter, setNodesByFilter] = useState<Record<string, WorkspaceNodeItem[]>>({});
   const [isLoadingNodes, setIsLoadingNodes] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [expandedFilters, setExpandedFilters] = useState<Set<string>>(new Set(["inbox", "active", "decision"]));
+  const [topics, setTopics] = useState<TopicRecord[]>([]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -30,15 +31,24 @@ export function AdvisorDrawer({ buttonClassName = "advisor-menu-button" }: Props
     }
     let isCurrent = true;
     setIsLoadingNodes(true);
-    getWorkspaceNodes(selectedFilter)
-      .then((items) => {
+    Promise.all([
+      Promise.all(workspaceLinks.map((item) => getWorkspaceNodes(item.filter).then((nodes) => [item.filter, nodes.slice(0, 4)] as const))),
+      getTopics()
+    ])
+      .then(([workspaceResults, topicResults]) => {
         if (isCurrent) {
-          setNodes(items.slice(0, 12));
+          const nextNodes: Record<string, WorkspaceNodeItem[]> = {};
+          for (const result of workspaceResults) {
+            nextNodes[result[0]] = result[1];
+          }
+          setNodesByFilter(nextNodes);
+          setTopics(topicResults.filter((topic) => topic.status === "active"));
         }
       })
       .catch(() => {
         if (isCurrent) {
-          setNodes([]);
+          setNodesByFilter({});
+          setTopics([]);
         }
       })
       .finally(() => {
@@ -49,11 +59,18 @@ export function AdvisorDrawer({ buttonClassName = "advisor-menu-button" }: Props
     return () => {
       isCurrent = false;
     };
-  }, [isOpen, selectedFilter]);
+  }, [isOpen]);
 
-  function selectWorkspaceFilter(filter: string) {
-    setSelectedFilter(filter);
-    setNodes([]);
+  function toggleFilter(filter: string) {
+    setExpandedFilters((current) => {
+      const next = new Set(current);
+      if (next.has(filter)) {
+        next.delete(filter);
+      } else {
+        next.add(filter);
+      }
+      return next;
+    });
   }
 
   return (
@@ -78,30 +95,46 @@ export function AdvisorDrawer({ buttonClassName = "advisor-menu-button" }: Props
 
               <nav className="advisor-drawer-section" aria-label="工作区">
                 <div className="advisor-drawer-link primary">工作区</div>
-                {workspaceLinks.map((item) => (
-                  <button
-                    className={item.filter === selectedFilter ? "advisor-drawer-link nested active" : "advisor-drawer-link nested"}
-                    key={item.filter}
-                    onClick={() => selectWorkspaceFilter(item.filter)}
-                    type="button"
-                  >
-                    {item.label}
-                  </button>
-                ))}
+                {workspaceLinks.map((item) => {
+                  const isExpanded = expandedFilters.has(item.filter);
+                  const nodes = nodesByFilter[item.filter] ?? [];
+                  return (
+                    <div className="advisor-drawer-group" key={item.filter}>
+                      <button className="advisor-drawer-link nested" onClick={() => toggleFilter(item.filter)} type="button">
+                        {item.label}
+                      </button>
+                      {isExpanded ? (
+                        <div className="advisor-drawer-children">
+                          {isLoadingNodes ? <p className="advisor-drawer-muted tertiary">正在读取线索</p> : null}
+                          {!isLoadingNodes && nodes.length === 0 ? <p className="advisor-drawer-muted tertiary">还没有线索</p> : null}
+                          {nodes.map((nodeItem) => (
+                            <Link
+                              className="advisor-drawer-link clue"
+                              href={`/nodes/${nodeItem.node.id}`}
+                              key={`${item.filter}-${nodeItem.node.id}`}
+                              onClick={() => setIsOpen(false)}
+                            >
+                              {nodeItem.node.title}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </nav>
 
-              <nav className="advisor-drawer-section" aria-label="最近线索">
-                <div className="advisor-drawer-link primary">线索</div>
-                {isLoadingNodes ? <p className="advisor-drawer-muted">正在读取线索</p> : null}
-                {!isLoadingNodes && nodes.length === 0 ? <p className="advisor-drawer-muted">还没有线索</p> : null}
-                {nodes.map((item) => (
+              <nav className="advisor-drawer-section" aria-label="复盘议题">
+                <div className="advisor-drawer-link primary">复盘议题</div>
+                {topics.length === 0 ? <p className="advisor-drawer-muted nested">还没有进行中的议题</p> : null}
+                {topics.map((topic) => (
                   <Link
-                    className="advisor-drawer-link clue"
-                    href={`/nodes/${item.node.id}`}
-                    key={item.node.id}
+                    className="advisor-drawer-link nested"
+                    href={`/review/topics/${topic.id}`}
+                    key={topic.id}
                     onClick={() => setIsOpen(false)}
                   >
-                    {item.node.title}
+                    {topic.title}
                   </Link>
                 ))}
               </nav>
